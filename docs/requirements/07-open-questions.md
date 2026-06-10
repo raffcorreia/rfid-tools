@@ -42,33 +42,34 @@
 | OQ21 | What is the exact WAFER connector pitch/type? | Required for cabling/enclosure. | Open |
 | OQ22 | Must EN be held high continuously during operation? | Required for power and sleep design. | Open |
 | OQ23 | What is the wake timing after EN is asserted? | Affects firmware startup sequencing. | Open |
-| OQ24 | Which ESP32 board will be used? | Affects pin mapping, power, and enclosure. | Open |
+| OQ24 | Which ESP32 board will be used? | Affects pin mapping, power, and enclosure. | Answered: ESP32-S3 SuperMini development board. |
 | OQ25 | What exact ESP32-to-YRM100 module wiring will be used for the first prototype? | Required for reproducible hardware setup. | Open |
 | OQ26 | What power source will supply YRM100 VCC during prototype testing? | Required to avoid unstable reads or brownouts. | Open |
 | OQ27 | Should EN be tied high or controlled by an ESP32 GPIO? | Affects wiring and firmware bring-up. | Open |
+| OQ28 | What is the exact pinout for the selected ESP32-S3 SuperMini board variant? | SuperMini boards vary by seller and silkscreen; pin choices must match the physical board. | Open |
 
 ## Bluetooth Architecture
 
 | ID | Question | Why It Matters | Status |
 |---|---|---|---|
-| OQ28 | Does the YRM100 module itself have usable Bluetooth/BLE support? | Could change architecture and remove ESP32 bridge. | Partially answered: SDK includes Android Bluetooth terminal samples, but not evidence of YRM100 onboard BLE. |
-| OQ29 | If Bluetooth exists, is it iPhone-compatible BLE or another profile? | iOS supports BLE well, but classic SPP is not generally available. | Likely not iPhone-compatible from SDK sample: Android sample uses classic RFCOMM/SPP UUID `00001101-0000-1000-8000-00805F9B34FB`; still open for actual purchased hardware. |
-| OQ30 | What BLE service and characteristic layout should the ESP32 expose? | Required for app/firmware contract. | Open |
-| OQ31 | What message encoding should be used over BLE? | Affects reliability, debugging, and future compatibility. | Open |
+| OQ29 | Does the YRM100 module itself have usable Bluetooth/BLE support? | Could change architecture and remove ESP32 bridge. | Partially answered: SDK includes Android Bluetooth terminal samples, but not evidence of YRM100 onboard BLE. |
+| OQ30 | If Bluetooth exists, is it iPhone-compatible BLE or another profile? | iOS supports BLE well, but classic SPP is not generally available. | Likely not iPhone-compatible from SDK sample: Android sample uses classic RFCOMM/SPP UUID `00001101-0000-1000-8000-00805F9B34FB`; still open for actual purchased hardware. |
+| OQ31 | What BLE service and characteristic layout should the ESP32 expose? | Required for app/firmware contract. | Open |
+| OQ32 | What message encoding should be used over BLE? | Affects reliability, debugging, and future compatibility. | Open |
 
 ## iOS Development
 
 | ID | Question | Why It Matters | Status |
 |---|---|---|---|
-| OQ32 | How much weekly free-signing friction is acceptable during development? | Affects testing cadence. | Open |
-| OQ33 | Will Apple Developer Program enrollment be needed later? | Required for TestFlight/App Store and easier device distribution. | Open |
-| OQ34 | What iOS versions should be supported? | Affects CoreBluetooth and SwiftUI choices. | Open |
-| OQ35 | What local persistence should saved tag reads use? | Affects data model and clone workflow. | Open |
+| OQ33 | How much weekly free-signing friction is acceptable during development? | Affects testing cadence. | Open |
+| OQ34 | Will Apple Developer Program enrollment be needed later? | Required for TestFlight/App Store and easier device distribution. | Open |
+| OQ35 | What iOS versions should be supported? | Affects CoreBluetooth and SwiftUI choices. | Open |
+| OQ36 | What local persistence should saved tag reads use? | Affects data model and clone workflow. | Open |
 
 ## SDK Review
 
 | ID | Question | Why It Matters | Status |
 |---|---|---|---|
-| OQ36 | Which files in the SDK contain protocol documentation? | Identifies safe reference material. | Answered: see `08-sdk-audit.md`. |
-| OQ37 | Does the SDK include Arduino, ESP32, or Raspberry Pi source code? | May reveal protocol behavior for reimplementation. | Partially answered: SDK includes Arduino-related archives/wiring notes and Android/C# sources; ESP32-specific source not yet confirmed. |
-| OQ38 | What is the SDK license or redistribution status? | Affects whether snippets or docs can be included. | Open |
+| OQ37 | Which files in the SDK contain protocol documentation? | Identifies safe reference material. | Answered: see `08-sdk-audit.md`. |
+| OQ38 | Does the SDK include Arduino, ESP32, or Raspberry Pi source code? | May reveal protocol behavior for reimplementation. | Partially answered: SDK includes Arduino-related archives/wiring notes and Android/C# sources; ESP32-specific source not yet confirmed. |
+| OQ39 | What is the SDK license or redistribution status? | Affects whether snippets or docs can be included. | Open |

@@ -72,7 +72,7 @@ RFID Tools is a native iPhone + ESP32 + YRM100 UHF RFID project. The goal is to 
 | Layer | Technology |
 |---|---|
 | iOS app | Swift, SwiftUI, CoreBluetooth |
-| Firmware | ESP32, firmware framework deferred until board selection |
+| Firmware | ESP32-S3 SuperMini, firmware framework deferred until pinout/workflow validation |
 | RFID module | YRM100 over 3.3V TTL UART |
 | RFID protocol | EPCglobal UHF Class 1 Gen 2 / ISO 18000-6C |
 | Local storage | SwiftData or SQLite-backed persistence, final choice deferred |
@@ -137,7 +137,7 @@ None.
   - `tools/protocol/test-vectors/`
   - `tools/protocol/scripts/`
 - Add placeholder README files in each top-level code/tool area explaining ownership.
-- Decide initial firmware framework after ESP32 board is chosen, or document it as deferred.
+- Decide initial firmware framework after ESP32-S3 SuperMini pinout/workflow validation, or document it as deferred.
 - Add a root-level repo map if README becomes too long.
 - Ensure `.gitignore` covers Xcode, firmware, local capture, and vendor artifacts.
 
@@ -170,7 +170,7 @@ The ESP32 and YRM100 are wired with a documented module-to-module mapping, power
 #### Dependencies
 
 - PHASE-000.
-- ESP32 board selected.
+- ESP32-S3 SuperMini board selected.
 - YRM100 module and connector cable available.
 
 #### Deliverables
@@ -525,5 +525,5 @@ Each bugfix should include:
 - The implementation plan is intentionally phased so hardware can be validated before iOS workflows depend on it.
 - The iPhone app should never be the only way to test YRM100 communication.
 - The vendor SDK remains outside the repo and reference-only.
-- Exact ESP32 board and firmware framework are still deferred choices.
+- Exact ESP32-S3 SuperMini pinout and firmware framework are still deferred choices.
 - Module wiring is tracked; physical layout beyond module-to-module wiring is not tracked.

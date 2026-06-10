@@ -29,7 +29,7 @@ This architecture is provisional. If the YRM100 documentation proves that the mo
 - RFID protocol: EPCglobal UHF Class 1 Gen 2 / ISO 18000-6C.
 - Region target: US frequency band, 902-928 MHz.
 - Tags: INVETON IN9654 UHF paper tags, H9 chip, 96 x 22 mm, 860-960 MHz.
-- Controller: ESP32 board to be selected later.
+- Controller: ESP32-S3 SuperMini development board.
 
 ## Documentation
 

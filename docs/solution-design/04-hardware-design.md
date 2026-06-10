@@ -7,7 +7,7 @@
 | Component | Role |
 |---|---|
 | iPhone | BLE central and user interface |
-| ESP32 | BLE peripheral, UART host, reader controller |
+| ESP32-S3 SuperMini | BLE peripheral, UART host, reader controller |
 | YRM100 | UHF RFID reader/writer |
 | INVETON IN9654 / H9 tags | UHF RFID targets |
 
@@ -53,7 +53,7 @@ Two acceptable prototype options exist:
 | Tie EN high | Simplest bring-up path | Less firmware control over sleep/wake |
 | ESP32 GPIO controls EN | Firmware can sleep/wake reader | Requires documented timing and pin choice |
 
-Final choice is deferred until ESP32 board selection.
+Final choice is deferred until the selected ESP32-S3 SuperMini pinout and prototype wiring are confirmed.
 
 ## Bring-Up Checklist
 

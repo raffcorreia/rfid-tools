@@ -28,7 +28,7 @@
 
 - The first mobile target is iPhone.
 - The iOS app should use native Swift and CoreBluetooth.
-- The ESP32 firmware should avoid assumptions tied to one specific ESP32 development board until the board is selected.
+- The ESP32 firmware should isolate board-specific pin choices so the selected ESP32-S3 SuperMini can be changed later if needed.
 - The RFID layer should target EPCglobal UHF Class 1 Gen 2 / ISO 18000-6C.
 - The RF region target is US 902-928 MHz unless changed explicitly.
 

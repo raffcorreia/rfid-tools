@@ -16,13 +16,13 @@
 
 | Area | Choice | Rationale |
 |---|---|---|
-| Platform | ESP32 | Available hardware, BLE support, UART support. |
+| Platform | ESP32-S3 SuperMini | Selected controller board with BLE support and UART-capable GPIO. |
 | BLE role | Peripheral / GATT server | iPhone acts as BLE central. |
 | RFID interface | Hardware UART | YRM100 exposes 3.3V TTL UART. |
 | Protocol implementation | Project-owned C/C++ firmware module | Avoids vendor runtime dependency. |
 | Debug interface | USB serial logs | Required for bench testing without iPhone. |
 
-The exact ESP32 framework is deferred until board selection. Candidate frameworks are Arduino-ESP32 for fast bring-up or ESP-IDF for stronger long-term control.
+The exact ESP32 firmware framework is still deferred. Candidate frameworks are Arduino-ESP32 for fast bring-up or ESP-IDF for stronger long-term control.
 
 ## RFID Reader
 
@@ -47,8 +47,8 @@ The exact ESP32 framework is deferred until board selection. Candidate framework
 
 ## Deferred Choices
 
-- Exact ESP32 board.
 - ESP32 firmware framework.
+- Exact ESP32-S3 SuperMini pinout and GPIO assignment.
 - iOS local persistence technology.
 - BLE message encoding details.
 - Final module wiring.

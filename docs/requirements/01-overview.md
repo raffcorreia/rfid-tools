@@ -63,7 +63,7 @@ The project is built around a YRM100 integrated UHF RFID reader module, an ESP32
 - iOS BLE behavior must comply with Apple CoreBluetooth limitations.
 - iOS testing without a paid Apple Developer Program account has signing expiration friction.
 - The YRM100 SDK directory is untrusted and must not be executed directly.
-- The ESP32 board model is not selected yet.
+- The selected controller is an ESP32-S3 SuperMini development board.
 - The YRM100 UART command protocol still needs to be extracted from documentation or reviewed source.
 - The target operating region is the United States, so RF behavior must target 902-928 MHz.
 

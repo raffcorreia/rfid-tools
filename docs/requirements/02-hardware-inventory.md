@@ -98,9 +98,9 @@ Power caution:
 
 ## ESP32 Controller
 
-Multiple ESP32 boards are available. The exact board will be selected later.
+The selected controller is an ESP32-S3 SuperMini development board.
 
-Selection criteria:
+Validation criteria:
 
 - Stable power path for the RFID module.
 - Available hardware UART pins.
@@ -108,7 +108,7 @@ Selection criteria:
 - USB serial debugging.
 - Enough GPIO for EN/reset/status controls.
 - Practical enclosure and mounting options.
-- Breadboard-friendly pin access for the prototype.
+- Confirmed board pinout matching the physical board markings.
 
 ## Vendor SDK
 
