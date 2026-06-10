@@ -44,8 +44,21 @@ Requirements are tracked in:
 - [docs/requirements/07-open-questions.md](docs/requirements/07-open-questions.md)
 - [docs/requirements/08-sdk-audit.md](docs/requirements/08-sdk-audit.md)
 
-Implementation plans will be added later after the requirements and solution design stabilize.
-
 Solution design is tracked in:
 
 - [docs/solution-design/00-index.md](docs/solution-design/00-index.md)
+
+Implementation tracking is available in:
+
+- [docs/implementation/plan.md](docs/implementation/plan.md)
+- [docs/implementation/phase-status.md](docs/implementation/phase-status.md)
+
+## Project Structure
+
+```text
+rfid-tools/
+  docs/                  Documentation, plans, and QA records
+  firmware/esp32/        ESP32 firmware for BLE and YRM100 UART control
+  ios/RFIDTools/         Native iOS app
+  tools/protocol/        Protocol test vectors and helper scripts
+```
