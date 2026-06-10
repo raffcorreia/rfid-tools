@@ -4,6 +4,8 @@
 
 - I want to connect the YRM100 module to an ESP32 so that I can control the reader without using vendor Windows software.
 - I want to validate UART communication with the reader so that I know the module is wired and powered correctly.
+- I want a module wiring reference so that I can assemble the first prototype without guessing pin mappings.
+- I want a wiring validation checklist so that I can debug power, EN, and UART issues step by step.
 - I want the firmware to expose readable logs so that I can diagnose reader and BLE problems.
 - I want the iPhone app to show BLE and RFID errors clearly so that hardware problems are not hidden behind generic failures.
 - I want to inspect raw-ish development events during testing so that protocol behavior can be confirmed.

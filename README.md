@@ -42,5 +42,6 @@ Requirements are tracked in:
 - [docs/requirements/05-non-functional-requirements.md](docs/requirements/05-non-functional-requirements.md)
 - [docs/requirements/06-business-rules.md](docs/requirements/06-business-rules.md)
 - [docs/requirements/07-open-questions.md](docs/requirements/07-open-questions.md)
+- [docs/requirements/08-sdk-audit.md](docs/requirements/08-sdk-audit.md)
 
 Implementation plans and solution design will be added later after the requirements stabilize.

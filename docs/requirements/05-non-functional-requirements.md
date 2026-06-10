@@ -7,6 +7,8 @@
 - Write operations must require explicit user action.
 - RF inventory must be stoppable from the app and firmware.
 - Region and power settings must be handled conservatively.
+- Module wiring must document the power source and common ground before reader operation.
+- The YRM100 must not be powered from an ESP32 GPIO.
 
 ## Reliability
 
@@ -58,3 +60,4 @@
 - YRM100 UART frame parsing should be testable with captured or documented sample frames.
 - Hardware tests should be possible without requiring the iPhone app as the only control surface.
 - iOS BLE behavior should be validated on a real iPhone, not only in simulator.
+- Wiring validation should be possible in stages: power, EN, UART response, then RF inventory.

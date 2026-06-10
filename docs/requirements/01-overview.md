@@ -36,6 +36,8 @@ The project is built around a YRM100 integrated UHF RFID reader module, an ESP32
 - Basic reader configuration such as power and region, if supported by the YRM100 protocol.
 - Tag write/programming workflows, if supported safely by the module and tags.
 - Documentation for hardware, requirements, open questions, and later design decisions.
+- A module wiring plan for the first ESP32-to-YRM100 prototype.
+- A final wiring reference that records confirmed pins, power path, and validation steps.
 
 ### Out of Scope
 

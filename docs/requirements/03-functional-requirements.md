@@ -70,6 +70,8 @@
 | RF44 | Hardware bring-up mode | Firmware shall support a minimal hardware test path for UART, EN pin, and reader status. |
 | RF45 | Protocol testability | Reader protocol parsing shall be testable without requiring live RF hardware. |
 | RF46 | Documentation updates | Any confirmed protocol details shall be captured in project documentation. |
+| RF47 | Module wiring reference | The project shall include a documented module wiring reference for the first ESP32-to-YRM100 prototype. |
+| RF48 | Wiring validation checklist | The project shall include a checklist to validate power, ground, EN, UART TX/RX, and first reader response. |
 
 ## Explicitly Deferred
 
