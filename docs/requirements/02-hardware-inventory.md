@@ -100,6 +100,50 @@ Power caution:
 
 The selected controller is an ESP32-S3 SuperMini development board.
 
+Photo-derived external pinout from the selected physical board:
+
+Component side, USB-C connector at the top:
+
+| Left edge, top to bottom | Right edge, top to bottom |
+|---|---|
+| `TX` | `5V` |
+| `RX` | `GND` |
+| `1` | `3V3` |
+| `2` | `13` |
+| `3` | `12` |
+| `4` | `11` |
+| `5` | `10` |
+| `6` | `9` |
+| `7` | `8` |
+
+Back side, USB-C connector at the top:
+
+| Left edge, top to bottom | Right edge, top to bottom |
+|---|---|
+| `5V` | `TX` |
+| `GND` | `RX` |
+| `3V3` | `1` |
+| `13` | `2` |
+| `12` | `3` |
+| `11` | `4` |
+| `10` | `5` |
+| `9` | `6` |
+| `8` | `7` |
+
+The first prototype should use the external edge pins only. The back side also exposes additional inner pads, but those are not needed for initial wiring and should not be part of the first breadboard setup.
+
+First prototype YRM100 wiring:
+
+| YRM100 Pin | YRM100 Signal | ESP32-S3 SuperMini Connection | Direction / Purpose | Validation |
+|---|---|---|---|---|
+| 1 | `GND` | `GND` | Common ground | Photo-derived board pin; required |
+| 2 | `EN` | `3V3` | Holds reader enabled | Uses vendor EN high threshold greater than 1.5V |
+| 3 | `RXD` | `TX` | ESP32 transmits to YRM100 | Validate with first command response |
+| 4 | `TXD` | `RX` | ESP32 receives from YRM100 | Validate with first command response |
+| 5 | `VCC` | `5V` | Reader power from USB-powered board rail | Must remain stable under peak pulse current below 260mA |
+
+If the reader is unstable, use an external regulated 5V supply for YRM100 VCC with common ground to the ESP32.
+
 Validation criteria:
 
 - Stable power path for the RFID module.

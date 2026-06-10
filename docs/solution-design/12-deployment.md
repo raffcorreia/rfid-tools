@@ -66,7 +66,7 @@ Test vectors let the firmware parser, iOS BLE decoder, and any helper tools agre
 
 ## Firmware Development
 
-- Final ESP32 framework is deferred until the ESP32-S3 SuperMini pinout and firmware workflow are confirmed.
+- Final ESP32 framework is deferred until the ESP32-S3 SuperMini firmware workflow is confirmed.
 - Firmware must be flashable locally.
 - USB serial logs are required for bench testing.
 - Firmware should not require iPhone app for first UART/RFID validation.

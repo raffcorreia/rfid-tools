@@ -48,7 +48,7 @@ The exact ESP32 firmware framework is still deferred. Candidate frameworks are A
 ## Deferred Choices
 
 - ESP32 firmware framework.
-- Exact ESP32-S3 SuperMini pinout and GPIO assignment.
+- Final ESP32 GPIO assignment beyond the first UART bring-up pins.
 - iOS local persistence technology.
 - BLE message encoding details.
-- Final module wiring.
+- Final module wiring after first UART response validation.

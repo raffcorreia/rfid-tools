@@ -43,10 +43,10 @@
 | OQ22 | Must EN be held high continuously during operation? | Required for power and sleep design. | Open |
 | OQ23 | What is the wake timing after EN is asserted? | Affects firmware startup sequencing. | Open |
 | OQ24 | Which ESP32 board will be used? | Affects pin mapping, power, and enclosure. | Answered: ESP32-S3 SuperMini development board. |
-| OQ25 | What exact ESP32-to-YRM100 module wiring will be used for the first prototype? | Required for reproducible hardware setup. | Open |
-| OQ26 | What power source will supply YRM100 VCC during prototype testing? | Required to avoid unstable reads or brownouts. | Open |
-| OQ27 | Should EN be tied high or controlled by an ESP32 GPIO? | Affects wiring and firmware bring-up. | Open |
-| OQ28 | What is the exact pinout for the selected ESP32-S3 SuperMini board variant? | SuperMini boards vary by seller and silkscreen; pin choices must match the physical board. | Open |
+| OQ25 | What exact ESP32-to-YRM100 module wiring will be used for the first prototype? | Required for reproducible hardware setup. | Answered for first prototype: `GND` to `GND`, `EN` to `3V3`, YRM100 `RXD` to ESP32 `TX`, YRM100 `TXD` to ESP32 `RX`, and YRM100 `VCC` to ESP32 `5V`. |
+| OQ26 | What power source will supply YRM100 VCC during prototype testing? | Required to avoid unstable reads or brownouts. | Answered for first prototype: ESP32 `5V` USB rail first; external regulated 5V fallback if unstable. |
+| OQ27 | Should EN be tied high or controlled by an ESP32 GPIO? | Affects wiring and firmware bring-up. | Answered for first prototype: tie YRM100 `EN` to ESP32 `3V3`. |
+| OQ28 | What is the exact pinout for the selected ESP32-S3 SuperMini board variant? | SuperMini boards vary by seller and silkscreen; pin choices must match the physical board. | Answered for external edge pins from user-provided photos; inner pads are deferred. |
 
 ## Bluetooth Architecture
 

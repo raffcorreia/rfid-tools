@@ -36,6 +36,26 @@ Physical layout beyond module-to-module wiring is intentionally not tracked.
 
 TX/RX direction must be confirmed from the module perspective during bring-up.
 
+## ESP32-S3 SuperMini External Pins
+
+The selected ESP32-S3 SuperMini board has been documented from user-provided photos. With the USB-C connector at the top, the external edge pins expose:
+
+| Component Side Left | Component Side Right |
+|---|---|
+| `TX`, `RX`, `1`, `2`, `3`, `4`, `5`, `6`, `7` | `5V`, `GND`, `3V3`, `13`, `12`, `11`, `10`, `9`, `8` |
+
+The first hardware bring-up uses only these edge pins. Inner pads visible on the back side are deferred until there is a specific need.
+
+## First Prototype Wiring
+
+| YRM100 Pin | YRM100 Signal | ESP32-S3 SuperMini Connection | Direction from ESP32 | Notes |
+|---|---|---|---|---|
+| 1 | `GND` | `GND` | Ground | Common ground is required. |
+| 2 | `EN` | `3V3` | Enable high | Simplest bring-up path. |
+| 3 | `RXD` | `TX` | TX to reader | Crossed UART signal. |
+| 4 | `TXD` | `RX` | RX from reader | Crossed UART signal. |
+| 5 | `VCC` | `5V` | Power | Use USB-powered board rail first; switch to external regulated 5V if unstable. |
+
 ## Power Design
 
 - YRM100 VCC must be supplied by a rail capable of the documented peak pulse current below 260mA.
@@ -46,20 +66,20 @@ TX/RX direction must be confirmed from the module perspective during bring-up.
 
 ## EN Strategy
 
-Two acceptable prototype options exist:
+First bring-up ties YRM100 `EN` to ESP32 `3V3`.
+
+This keeps the first UART test independent from firmware-controlled reader power sequencing. A later revision can move `EN` to an ESP32 GPIO if sleep/wake control is needed.
 
 | Option | Description | Tradeoff |
 |---|---|---|
-| Tie EN high | Simplest bring-up path | Less firmware control over sleep/wake |
-| ESP32 GPIO controls EN | Firmware can sleep/wake reader | Requires documented timing and pin choice |
-
-Final choice is deferred until the selected ESP32-S3 SuperMini pinout and prototype wiring are confirmed.
+| Tie EN high | Selected for first bring-up | Less firmware control over sleep/wake |
+| ESP32 GPIO controls EN | Deferred | Requires documented timing and pin choice |
 
 ## Bring-Up Checklist
 
 1. Confirm YRM100 VCC rail and common ground.
-2. Confirm EN state.
-3. Confirm ESP32 UART pins and cross TX/RX if required.
+2. Confirm EN is tied to `3V3`.
+3. Confirm ESP32 `TX` goes to YRM100 `RXD` and ESP32 `RX` goes to YRM100 `TXD`.
 4. Send get-module-info or single-inventory command over UART.
 5. Confirm valid `0xBB ... 0x7E` response frame.
 6. Set/read US region when safe.
