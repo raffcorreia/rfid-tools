@@ -44,4 +44,8 @@ Requirements are tracked in:
 - [docs/requirements/07-open-questions.md](docs/requirements/07-open-questions.md)
 - [docs/requirements/08-sdk-audit.md](docs/requirements/08-sdk-audit.md)
 
-Implementation plans and solution design will be added later after the requirements stabilize.
+Implementation plans will be added later after the requirements and solution design stabilize.
+
+Solution design is tracked in:
+
+- [docs/solution-design/00-index.md](docs/solution-design/00-index.md)
