@@ -22,13 +22,32 @@ The iPhone app should send high-level commands to the ESP32, such as start inven
 - RSSI should be attached to a tag read only when the reader response supports it.
 - Stale buffered reader data should not be presented as a fresh scan result.
 
+## Saved Tag Reads
+
+- A read can be saved only when it contains at least one useful tag identifier or memory value.
+- A saved read must have a user-visible label.
+- Labels are user-controlled and may be descriptive, such as `PLA Blue TAG`.
+- Saved reads should preserve the original captured values and timestamp.
+- Editing a label must not change the captured tag data.
+- Saved reads are local to the iPhone in the first phase.
+
 ## Tag Writing
 
 - Tag writing is considered higher risk than reading.
 - Write support remains conditional until the YRM100 write protocol and H9 tag memory layout are confirmed.
 - The app must require explicit confirmation before writing a tag.
+- The app must clearly show whether the write source is a saved read or manually entered data.
 - The system should verify a write by reading back the target memory when possible.
 - Lock, kill, password, and reserved-memory operations are out of scope until explicitly designed.
+
+## Tag Cloning
+
+- Cloning means copying supported readable/writable tag data from a saved read onto another compatible writable tag.
+- Cloning must not imply that every physical tag can be duplicated exactly.
+- Clone workflows must identify which memory bank or value will be written before confirmation.
+- Clone workflows must verify the target tag after writing when possible.
+- Cloning protected, locked, passworded, killed, or access-controlled tag data is out of scope.
+- The app must not present cloning as successful unless the write is acknowledged and, where possible, verified by a read-back.
 
 ## Reader Configuration
 

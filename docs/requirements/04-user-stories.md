@@ -15,12 +15,17 @@
 - I want to see scanned tags in a list so that I know which tags were detected.
 - I want duplicate reads to be grouped or updated so that the scan result is easy to understand.
 - I want to see signal strength when available so that I can understand distance or orientation effects.
+- I want to save a tag read with a label, such as `PLA Blue TAG`, so that I can recognize it later.
+- I want to open saved tag reads so that I can reuse known tag data.
+- I want to write my own supported value to a writable tag so that I can program tags for experiments.
+- I want to clone a saved tag read to another compatible tag so that I can duplicate a known tag value when the tag technology permits it.
 
 ## As an Asset Manager
 
 - I want to associate a scanned EPC with an asset so that RFID tags can identify real items.
 - I want to verify that a tag can be read consistently before attaching it permanently.
 - I want to program or commission tags in a controlled workflow so that incorrect tag writes are avoided.
+- I want labeled saved reads so that tags can be described in plain language instead of only by EPC values.
 
 ## Technical Stories
 

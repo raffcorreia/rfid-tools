@@ -2,13 +2,16 @@
 
 ## Purpose
 
-RFID Tools is a prototype and development platform for reading, writing, and managing UHF RFID tags from an iPhone.
+RFID Tools is a prototype and development platform for reading, saving, writing, cloning, and managing UHF RFID tags from an iPhone.
 
-The project is built around a YRM100 integrated UHF RFID reader module, an ESP32 controller, and a native iOS application. The first goal is to make the hardware reliable and understandable. The second goal is to build a clean mobile workflow for scanning, inspecting, and eventually writing tags.
+The project is built around a YRM100 integrated UHF RFID reader module, an ESP32 controller, and a native iOS application. The first goal is to make the hardware reliable and understandable. The second goal is to build a clean mobile workflow for scanning tags, saving reads with human labels, and writing tag data when the tag and reader support it.
 
 ## System Goals
 
 - Read nearby UHF RFID tags from an iPhone-controlled workflow.
+- Save scanned tag data with a user-provided label, such as `PLA Blue TAG`.
+- Write user-provided data to compatible tags.
+- Support a controlled tag cloning workflow where data read from one tag can be written to another compatible tag.
 - Use an ESP32 as the first planned bridge between the iPhone and the YRM100 module.
 - Communicate between iPhone and ESP32 using Bluetooth Low Energy.
 - Communicate between ESP32 and YRM100 using TTL UART.
@@ -27,6 +30,9 @@ The project is built around a YRM100 integrated UHF RFID reader module, an ESP32
 - UART driver for the YRM100 RFID module.
 - Tag inventory/scanning workflows.
 - Displaying EPC values, RSSI when available, and scan status.
+- Saving scanned tags with names/labels for later reuse.
+- Writing arbitrary supported tag memory values from the app.
+- Cloning supported tag data from a saved read onto another compatible writable tag.
 - Basic reader configuration such as power and region, if supported by the YRM100 protocol.
 - Tag write/programming workflows, if supported safely by the module and tags.
 - Documentation for hardware, requirements, open questions, and later design decisions.
@@ -40,6 +46,7 @@ The project is built around a YRM100 integrated UHF RFID reader module, an ESP32
 - Production asset-management backend or cloud sync in the first phase.
 - Multi-user account management in the first phase.
 - Regulatory certification work beyond documenting frequency and power assumptions.
+- Circumventing tag security features such as passwords, locks, kill commands, or access controls.
 
 ## Users
 
@@ -70,6 +77,8 @@ The project is built around a YRM100 integrated UHF RFID reader module, an ESP32
 7. ESP32 parses reader responses.
 8. ESP32 notifies the iPhone app over BLE.
 9. App displays tag EPC, RSSI/status, and scan history.
+10. User may save a read with a label for later reference.
+11. User may use a saved read as the source for a write/clone operation, if supported.
 ```
 
 ## Possible Future Extensions

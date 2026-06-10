@@ -1,6 +1,6 @@
 # RFID Tools
 
-RFID Tools is an iPhone-centered RFID reader/writer project for working with UHF RFID tags through an ESP32-controlled YRM100 integrated reader module.
+RFID Tools is an iPhone-centered RFID reader/writer project for reading, saving, writing, and cloning UHF RFID tags through an ESP32-controlled YRM100 integrated reader module.
 
 The planned system connects a native iOS app to an ESP32 over Bluetooth Low Energy. The ESP32 controls the YRM100 module over 3.3V TTL UART, and the YRM100 reads or writes EPC Gen2 / ISO 18000-6C UHF RFID tags.
 
@@ -16,6 +16,8 @@ This architecture is provisional. If the YRM100 documentation proves that the mo
 - CoreBluetooth used directly for BLE communication.
 - ESP32 acts as a BLE peripheral and RFID controller.
 - YRM100 reader is controlled over TTL UART.
+- Scanned tag reads can be saved with user labels, such as `PLA Blue TAG`.
+- Supported tag data can be written manually or cloned from a saved read onto a compatible writable tag.
 - Vendor SDK is treated as untrusted reference material only.
 - Protocol behavior should be reimplemented from documentation and careful source review, not by executing vendor binaries or scripts.
 
