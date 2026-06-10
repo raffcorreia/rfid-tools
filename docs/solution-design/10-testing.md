@@ -13,6 +13,20 @@
 | Hardware | Wiring, power, UART response, RF inventory |
 | End-to-end | iPhone -> ESP32 -> YRM100 -> tag |
 
+## Test Vectors
+
+Test vectors are small known examples that define expected protocol behavior. They should be stored under `tools/protocol/test-vectors/` when implementation begins.
+
+Examples:
+
+- raw YRM100 command bytes and expected checksum
+- raw YRM100 response bytes and expected parsed fields
+- malformed frames and expected parser errors
+- BLE command payloads and expected decoded commands
+- BLE event payloads and expected decoded app events
+
+These vectors are the shared contract between iOS, firmware, and optional host-side tools. They avoid sharing source code between Swift and ESP32 firmware while still keeping both sides aligned.
+
 ## Firmware Unit Tests
 
 Target:

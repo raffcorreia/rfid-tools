@@ -11,15 +11,51 @@ rfid-tools/
   docs/
     requirements/
     solution-design/
+    implementation/
   firmware/
     esp32/
+      src/
+      include/
+      test/
   ios/
     RFIDTools/
+      RFIDTools/
+      RFIDToolsTests/
+      RFIDToolsUITests/
   tools/
     protocol/
+      test-vectors/
+      scripts/
 ```
 
 This structure is planned, not yet implemented.
+
+## Codebase Ownership
+
+| Path | Owns |
+|---|---|
+| `ios/RFIDTools/` | Native Swift/SwiftUI app, CoreBluetooth central, saved tags, scan/write/clone UI, iOS diagnostics |
+| `firmware/esp32/` | ESP32 BLE peripheral, YRM100 UART driver, RFID command service, hardware pin config, serial diagnostics |
+| `tools/protocol/` | Optional host-side protocol helpers, generated fixtures, captured frame samples, and test vectors |
+| `docs/` | Requirements, solution design, implementation plan, QA notes, module wiring references |
+
+The iOS and firmware codebases should not share source code directly. Their shared contract is the documented BLE protocol plus protocol test vectors.
+
+## Test Vectors
+
+Test vectors are small, known input/output examples used to verify protocol code.
+
+Examples:
+
+| Vector | Input | Expected Output |
+|---|---|---|
+| YRM100 checksum | `00 22 00 00` | checksum `22` |
+| Single inventory frame | command type/code | bytes `BB 00 22 00 00 22 7E` |
+| Inventory notice parse | raw `BB 02 22 ... 7E` frame | EPC, PC, RSSI, CRC fields |
+| Write power frame | `26 dBm` | payload `0A 28`, valid `0xB6` frame |
+| BLE tag event | parsed tag read | encoded `TAG_SEEN` event |
+
+Test vectors let the firmware parser, iOS BLE decoder, and any helper tools agree on behavior without sharing code.
 
 ## iOS Development
 
