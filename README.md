@@ -1,2 +1,44 @@
-# rfid-tools
-RFID Tools is a utility app for interacting with an RFID reader/writer system powered by an ESP32 over Bluetooth Low Energy. It enables reading, writing, and managing RFID tags through a simple interface, making it ideal for prototyping, experimentation, and building custom RFID-based projects.
+# RFID Tools
+
+RFID Tools is an iPhone-centered RFID reader/writer project for working with UHF RFID tags through an ESP32-controlled YRM100 integrated reader module.
+
+The planned system connects a native iOS app to an ESP32 over Bluetooth Low Energy. The ESP32 controls the YRM100 module over 3.3V TTL UART, and the YRM100 reads or writes EPC Gen2 / ISO 18000-6C UHF RFID tags.
+
+```text
+iPhone app <BLE> ESP32 <UART> YRM100 reader <UHF RF> RFID tags
+```
+
+This architecture is provisional. If the YRM100 documentation proves that the module has usable standalone Bluetooth support, the ESP32 bridge may be reduced or removed.
+
+## Current Direction
+
+- Native iOS app written in Swift / SwiftUI.
+- CoreBluetooth used directly for BLE communication.
+- ESP32 acts as a BLE peripheral and RFID controller.
+- YRM100 reader is controlled over TTL UART.
+- Vendor SDK is treated as untrusted reference material only.
+- Protocol behavior should be reimplemented from documentation and careful source review, not by executing vendor binaries or scripts.
+
+## Hardware Notes
+
+- Reader module: YRM100 integrated UHF RFID reader/writer module.
+- Reader interface: 3.3V TTL UART.
+- Reader supply: DC 3.5-5V, with peak pulse current below 260mA according to vendor material.
+- RFID protocol: EPCglobal UHF Class 1 Gen 2 / ISO 18000-6C.
+- Region target: US frequency band, 902-928 MHz.
+- Tags: INVETON IN9654 UHF paper tags, H9 chip, 96 x 22 mm, 860-960 MHz.
+- Controller: ESP32 board to be selected later.
+
+## Documentation
+
+Requirements are tracked in:
+
+- [docs/requirements/01-overview.md](docs/requirements/01-overview.md)
+- [docs/requirements/02-hardware-inventory.md](docs/requirements/02-hardware-inventory.md)
+- [docs/requirements/03-functional-requirements.md](docs/requirements/03-functional-requirements.md)
+- [docs/requirements/04-user-stories.md](docs/requirements/04-user-stories.md)
+- [docs/requirements/05-non-functional-requirements.md](docs/requirements/05-non-functional-requirements.md)
+- [docs/requirements/06-business-rules.md](docs/requirements/06-business-rules.md)
+- [docs/requirements/07-open-questions.md](docs/requirements/07-open-questions.md)
+
+Implementation plans and solution design will be added later after the requirements stabilize.
