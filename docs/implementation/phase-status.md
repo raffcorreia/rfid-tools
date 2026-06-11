@@ -1,7 +1,7 @@
 # Phase Status - RFID Tools
 
-**Current Phase**: PHASE-001 - Module Wiring and Hardware Bring-Up
-**Current Status**: In Progress
+**Current Phase**: PHASE-002 - YRM100 UART Protocol Driver
+**Current Status**: PHASE-001 Complete
 **Previous Phase**: PHASE-000 - Repository Scaffolding and Tooling
 **Last Updated**: 2026-06-11
 
@@ -35,14 +35,14 @@ The plan should stay mostly stable. This status file should change as work progr
 | Decide YRM100 VCC power source | Done | Use ESP32 `5V` USB rail first; external regulated 5V fallback if unstable |
 | Document module wiring table | Done | See `docs/requirements/02-hardware-inventory.md` and `docs/solution-design/04-hardware-design.md` |
 | Create UART bring-up firmware sketch | Done | `firmware/esp32/yrm100_bringup/` sends diagnostic YRM100 commands and validates response frames |
-| Capture first valid YRM100 UART response | Open | Requires wiring |
+| Capture first valid YRM100 UART response | Done | Valid `0xBB ... 0x7E` frames captured for module info, inventory, region, and TX power |
 
 ## Phase History
 
 | Phase | Status | Started | Completed | Notes |
 |---|---|---|---|---|
 | PHASE-000 | Complete | 2026-06-10 | 2026-06-10 | Repository scaffolding and ownership docs created. |
-| PHASE-001 | In Progress | 2026-06-10 | - | ESP32-S3 SuperMini board selected, first prototype wiring documented, and valid YRM100 UART responses captured; tag inventory validation remains open. |
+| PHASE-001 | Complete | 2026-06-10 | 2026-06-11 | ESP32-S3 SuperMini board selected, first prototype wiring documented, valid YRM100 UART responses captured, and tag inventory/read/write validation completed. |
 
 ## Decisions
 
@@ -58,6 +58,7 @@ The plan should stay mostly stable. This status file should change as work progr
 | 2026-06-11 | PHASE-001 | Use an Arduino-compatible sketch for UART bring-up only. | This validates hardware before the final firmware framework and BLE service are chosen. |
 | 2026-06-11 | PHASE-001 | Correct YRM100 `0x03` diagnostic command to include the required selector byte. | Vendor command examples show hardware/software/manufacturer reads as `0x03` with payload `0x00`, `0x01`, or `0x02`. |
 | 2026-06-11 | PHASE-001 | Confirm YRM100 UART communication at `115200` baud. | The module returned valid checksum-verified frames for hardware, software, and manufacturer info. |
+| 2026-06-11 | PHASE-001 | Complete module bring-up after successful inventory and EPC write verification. | Single inventory, continuous inventory, and EPC clone/write flow all worked with the YRM100 and H9 tags. |
 
 ## Open Follow-Ups
 
@@ -69,6 +70,6 @@ The plan should stay mostly stable. This status file should change as work progr
 | FU-001-03 | PHASE-001 | Confirm exact ESP32-S3 SuperMini pinout from the physical board. | Done |
 | FU-001-04 | PHASE-001 | Wire the modules and capture the first valid YRM100 UART response. | Done |
 | FU-001-05 | PHASE-001 | Upload `yrm100_bringup` sketch and record Serial Monitor output. | Done |
-| FU-001-06 | PHASE-001 | Capture `r` output for region and TX power. | Open |
-| FU-001-07 | PHASE-001 | Capture first successful single inventory response from an H9 tag. | Open |
-| FU-001-08 | PHASE-001 | Investigate ESP32 reset when YRM100 single inventory enables RF. | Open |
+| FU-001-06 | PHASE-001 | Capture `r` output for region and TX power. | Done |
+| FU-001-07 | PHASE-001 | Capture first successful single inventory response from an H9 tag. | Done |
+| FU-001-08 | PHASE-001 | Investigate ESP32 reset when YRM100 single inventory enables RF. | Done |
