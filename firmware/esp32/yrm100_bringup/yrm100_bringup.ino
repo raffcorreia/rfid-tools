@@ -126,6 +126,9 @@ static size_t lastInventoryEpcLen = 0;
 static uint8_t lastInventoryPc[2];
 static uint8_t lastInventoryRssi = 0;
 static bool lastInventoryValid = false;
+static uint8_t cloneSourceEpc[64];
+static size_t cloneSourceEpcLen = 0;
+static bool cloneSourceValid = false;
 
 static void resetFrameParser();
 static void handleYrmByte(uint8_t value);
@@ -254,7 +257,7 @@ static bool sendDynamicCommand(const char *label, uint8_t command, const uint8_t
 }
 
 static bool selectTagByEpc(const uint8_t *epc, size_t epcLen) {
-  if (epc == nullptr || epcLen == 0 || epcLen > 255) {
+  if (epc == nullptr || epcLen == 0 || epcLen > 64) {
     Serial.println("[WRITE] invalid EPC selection source");
     return false;
   }
@@ -313,6 +316,45 @@ static bool writeEpcBytesToLastSeenTag(const uint8_t *newEpc, size_t newEpcLen) 
   Serial.println();
 
   return sendDynamicCommand("write EPC", 0x49, payload, 9 + newEpcLen);
+}
+
+static bool saveCloneSourceFromLastInventory() {
+  if (!lastInventoryValid || lastInventoryEpcLen == 0) {
+    Serial.println("[CLONE] no inventoried tag available; read a source tag first");
+    return false;
+  }
+
+  memcpy(cloneSourceEpc, lastInventoryEpc, lastInventoryEpcLen);
+  cloneSourceEpcLen = lastInventoryEpcLen;
+  cloneSourceValid = true;
+
+  Serial.print("[CLONE] saved source EPC ");
+  printBytes(cloneSourceEpc, cloneSourceEpcLen);
+  Serial.println();
+  return true;
+}
+
+static bool cloneSavedSourceToLastInventory() {
+  if (!cloneSourceValid || cloneSourceEpcLen == 0) {
+    Serial.println("[CLONE] no saved source EPC; read source tag then press c");
+    return false;
+  }
+
+  if (!lastInventoryValid || lastInventoryEpcLen == 0) {
+    Serial.println("[CLONE] no inventoried target tag available; read a target tag first");
+    return false;
+  }
+
+  if (cloneSourceEpcLen != lastInventoryEpcLen) {
+    Serial.print("[CLONE] source EPC length ");
+    Serial.print(cloneSourceEpcLen);
+    Serial.print(" bytes does not match target EPC length ");
+    Serial.print(lastInventoryEpcLen);
+    Serial.println(" bytes");
+    return false;
+  }
+
+  return writeEpcBytesToLastSeenTag(cloneSourceEpc, cloneSourceEpcLen);
 }
 
 static void drainYrmFor(uint32_t durationMs) {
@@ -483,7 +525,9 @@ static void printHelp() {
   Serial.println("  i = send single inventory command");
   Serial.println("  m = start multiple inventory command");
   Serial.println("  s = stop multiple inventory command");
-  Serial.println("  w = write a demo EPC value to the last inventoried tag");
+  Serial.println("  c = save the last inventoried tag as clone source");
+  Serial.println("  w = write the saved clone source EPC to the last inventoried tag");
+  Serial.println("  d = write a demo EPC value to the last inventoried tag");
   Serial.println("  b = cycle YRM100 UART baud through SDK/demo supported rates");
   Serial.println("  p = probe all SDK/demo supported baud rates");
   Serial.println("  v = visual TX test: set 1200 baud and send long 0x55 pattern");
@@ -602,8 +646,16 @@ void loop() {
       case 'S':
         sendCommand("stop multiple inventory", CMD_STOP_MULTIPLE_INVENTORY, sizeof(CMD_STOP_MULTIPLE_INVENTORY));
         break;
+      case 'c':
+      case 'C':
+        saveCloneSourceFromLastInventory();
+        break;
       case 'w':
       case 'W':
+        cloneSavedSourceToLastInventory();
+        break;
+      case 'd':
+      case 'D':
         writeEpcBytesToLastSeenTag(CMD_WRITE_DEMO_EPC, sizeof(CMD_WRITE_DEMO_EPC));
         break;
       case 'b':

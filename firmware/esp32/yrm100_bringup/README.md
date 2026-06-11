@@ -97,7 +97,9 @@ Serial monitor commands:
 | `i` | Send single inventory |
 | `m` | Start multiple inventory |
 | `s` | Stop multiple inventory |
-| `w` | Write the demo EPC value to the last inventoried tag |
+| `c` | Save the last inventoried tag as the clone source |
+| `w` | Write the saved clone source EPC to the last inventoried tag |
+| `d` | Write the demo EPC value to the last inventoried tag |
 | `b` | Cycle YRM100 UART baud through SDK/demo supported rates, then send hardware version |
 | `p` | Probe all SDK/demo supported baud rates with hardware-version command |
 | `v` | Visual TX test: switch UART to `1200` baud and send a long `0x55` pattern |
@@ -140,7 +142,14 @@ If sending `i` resets the ESP32, inventory is likely enabling the YRM100 RF powe
 
 Use `m` to start continuous inventory and `s` to stop it. Keep `i` for one-shot reads.
 
-The `w` command is a bring-up helper. It first selects the last EPC the sketch inventoried, then writes the demo EPC value:
+Clone flow with the bring-up sketch:
+
+1. Read the source tag with `i`.
+2. Press `c` to save that EPC as the clone source.
+3. Replace it with the target tag and read it with `i`.
+4. Press `w` to write the saved source EPC to the target tag.
+
+The `d` command remains a bring-up helper. It first selects the last EPC the sketch inventoried, then writes the demo EPC value:
 
 ```text
 E2 80 11 70 40 00 02 1D 35 AE 40 08
