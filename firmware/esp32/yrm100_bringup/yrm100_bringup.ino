@@ -84,6 +84,11 @@ static const uint8_t CMD_GET_TX_POWER[] = {
   0xBB, 0x00, 0xB7, 0x00, 0x00, 0xB7, 0x7E
 };
 
+// Vendor quick-reference labels this as 18.5 dBm.
+static const uint8_t CMD_SET_TX_POWER_LOW[] = {
+  0xBB, 0x00, 0xB6, 0x00, 0x02, 0x04, 0xE2, 0x9E, 0x7E
+};
+
 static const uint8_t CMD_SINGLE_INVENTORY[] = {
   0xBB, 0x00, 0x22, 0x00, 0x00, 0x22, 0x7E
 };
@@ -326,6 +331,7 @@ static void printHelp() {
   Serial.println("  x = raw byte capture for 5 seconds; send nothing");
   Serial.println("  g = send hardware/software/manufacturer version commands");
   Serial.println("  r = send get region and get TX power commands");
+  Serial.println("  t = set low TX power, then get TX power");
   Serial.println("  i = send single inventory command");
   Serial.println("  s = send stop multiple inventory command");
   Serial.println("  b = cycle YRM100 UART baud through SDK/demo supported rates");
@@ -421,6 +427,12 @@ void loop() {
       case 'r':
       case 'R':
         sendCommand("get region", CMD_GET_REGION, sizeof(CMD_GET_REGION));
+        delay(100);
+        sendCommand("get TX power", CMD_GET_TX_POWER, sizeof(CMD_GET_TX_POWER));
+        break;
+      case 't':
+      case 'T':
+        sendCommand("set low TX power", CMD_SET_TX_POWER_LOW, sizeof(CMD_SET_TX_POWER_LOW));
         delay(100);
         sendCommand("get TX power", CMD_GET_TX_POWER, sizeof(CMD_GET_TX_POWER));
         break;

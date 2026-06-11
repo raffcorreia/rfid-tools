@@ -93,6 +93,7 @@ Serial monitor commands:
 | `x` | Raw byte capture for 5 seconds; send nothing |
 | `g` | Send hardware version, software version, and manufacturer commands |
 | `r` | Send get region and get TX power commands |
+| `t` | Set low TX power, then get TX power |
 | `i` | Send single inventory |
 | `s` | Send stop multiple inventory |
 | `b` | Cycle YRM100 UART baud through SDK/demo supported rates, then send hardware version |
@@ -132,3 +133,5 @@ If no bytes arrive:
 - Verify the board-labeled `TX` / `RX` pins map to `GPIO43` / `GPIO44` for the selected board profile.
 
 If the boot message prints but there are no `[RX ...]` lines after sending `g` or `r`, the ESP32 is not receiving any bytes from the YRM100. That points to wiring, power, enable, UART pin selection, or baud rate rather than USB serial.
+
+If sending `i` resets the ESP32, inventory is likely enabling the YRM100 RF power amplifier and causing a supply dip or watchdog-class instability. Try `t` first to lower TX power, then retry `i`. If reset still happens, power the YRM100 from a separate regulated 5V supply with common ground to the ESP32 and add local decoupling near the YRM100 `VCC` / `GND`.

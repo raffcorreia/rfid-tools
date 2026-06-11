@@ -71,3 +71,4 @@ The plan should stay mostly stable. This status file should change as work progr
 | FU-001-05 | PHASE-001 | Upload `yrm100_bringup` sketch and record Serial Monitor output. | Done |
 | FU-001-06 | PHASE-001 | Capture `r` output for region and TX power. | Open |
 | FU-001-07 | PHASE-001 | Capture first successful single inventory response from an H9 tag. | Open |
+| FU-001-08 | PHASE-001 | Investigate ESP32 reset when YRM100 single inventory enables RF. | Open |
