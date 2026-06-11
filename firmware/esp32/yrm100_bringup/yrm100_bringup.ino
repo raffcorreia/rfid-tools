@@ -59,6 +59,7 @@ static constexpr uint32_t kVisualTestBaud = 1200;
 static constexpr uint32_t kStartupListenMs = 5000;
 static constexpr uint32_t kRawCaptureMs = 5000;
 static constexpr size_t kVisualTestBytes = 512;
+static constexpr uint32_t kSupportedYrmBauds[] = {115200, 57600, 38400, 19200, 9600};
 
 HardwareSerial YrmSerial(1);
 static uint32_t currentYrmBaud = kDefaultYrmBaud;
@@ -98,6 +99,9 @@ static uint32_t lastRxAtMs = 0;
 static uint32_t statusLedOffAtMs = 0;
 static bool rawCaptureEnabled = false;
 static uint32_t rawCaptureUntilMs = 0;
+
+static void resetFrameParser();
+static void handleYrmByte(uint8_t value);
 
 static void printByteHex(uint8_t value) {
   if (value < 0x10) {
@@ -177,6 +181,23 @@ static void sendRepeatedByte(const char *label, uint8_t value, size_t count) {
   }
   YrmSerial.flush();
   finishTxLed();
+}
+
+static void drainYrmFor(uint32_t durationMs) {
+  const uint32_t untilMs = millis() + durationMs;
+  while (static_cast<int32_t>(millis() - untilMs) < 0) {
+    updateStatusLed();
+    while (YrmSerial.available() > 0) {
+      handleYrmByte(static_cast<uint8_t>(YrmSerial.read()));
+    }
+    if (frameLen > 0 && millis() - lastRxAtMs > 500) {
+      Serial.print("[RX partial timeout] ");
+      printBytes(frame, frameLen);
+      Serial.println();
+      resetFrameParser();
+    }
+    delay(1);
+  }
 }
 
 static void resetFrameParser() {
@@ -292,7 +313,8 @@ static void printHelp() {
   Serial.println("  r = send get region and get TX power commands");
   Serial.println("  i = send single inventory command");
   Serial.println("  s = send stop multiple inventory command");
-  Serial.println("  b = toggle YRM100 UART baud between 115200 and 38400");
+  Serial.println("  b = cycle YRM100 UART baud through SDK/demo supported rates");
+  Serial.println("  p = probe all SDK/demo supported baud rates");
   Serial.println("  v = visual TX test: set 1200 baud and send long 0x55 pattern");
   Serial.println("  h = print this help");
   Serial.println();
@@ -397,8 +419,27 @@ void loop() {
         break;
       case 'b':
       case 'B':
-        beginYrmSerial(currentYrmBaud == 115200 ? 38400 : 115200);
+        for (size_t i = 0; i < sizeof(kSupportedYrmBauds) / sizeof(kSupportedYrmBauds[0]); i++) {
+          if (currentYrmBaud == kSupportedYrmBauds[i]) {
+            const size_t nextIndex = (i + 1) % (sizeof(kSupportedYrmBauds) / sizeof(kSupportedYrmBauds[0]));
+            beginYrmSerial(kSupportedYrmBauds[nextIndex]);
+            break;
+          }
+          if (i == (sizeof(kSupportedYrmBauds) / sizeof(kSupportedYrmBauds[0])) - 1) {
+            beginYrmSerial(kSupportedYrmBauds[0]);
+          }
+        }
         sendCommand("get hardware version", CMD_GET_HARDWARE_VERSION, sizeof(CMD_GET_HARDWARE_VERSION));
+        break;
+      case 'p':
+      case 'P':
+        Serial.println("[PROBE] probing SDK/demo baud rates with get hardware version");
+        for (size_t i = 0; i < sizeof(kSupportedYrmBauds) / sizeof(kSupportedYrmBauds[0]); i++) {
+          beginYrmSerial(kSupportedYrmBauds[i]);
+          sendCommand("get hardware version", CMD_GET_HARDWARE_VERSION, sizeof(CMD_GET_HARDWARE_VERSION));
+          drainYrmFor(1000);
+        }
+        Serial.println("[PROBE] ended");
         break;
       case 'v':
       case 'V':

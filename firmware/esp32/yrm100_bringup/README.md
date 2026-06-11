@@ -95,9 +95,12 @@ Serial monitor commands:
 | `r` | Send get region and get TX power commands |
 | `i` | Send single inventory |
 | `s` | Send stop multiple inventory |
-| `b` | Toggle YRM100 UART baud between `115200` and `38400`, then send hardware version |
+| `b` | Cycle YRM100 UART baud through SDK/demo supported rates, then send hardware version |
+| `p` | Probe all SDK/demo supported baud rates with hardware-version command |
 | `v` | Visual TX test: switch UART to `1200` baud and send a long `0x55` pattern |
 | `h` | Print help |
+
+The SDK/demo baud-rate list used by `b` and `p` is `115200`, `57600`, `38400`, `19200`, and `9600`. The vendor PC demo defaults its baud dropdown to `115200`.
 
 The `v` command is only for checking whether the configured ESP32 TX pin is physically toggling. It is not a valid YRM100 command, and the reader is not expected to answer it.
 
@@ -125,7 +128,7 @@ If no bytes arrive:
 - Confirm common ground.
 - Confirm YRM100 VCC is stable.
 - Swap UART TX/RX wires once before changing firmware assumptions.
-- Type `b` to test the vendor-mentioned alternate `38400` baud.
+- Type `p` to probe the SDK/demo baud-rate list.
 - Verify the board-labeled `TX` / `RX` pins map to `GPIO43` / `GPIO44` for the selected board profile.
 
 If the boot message prints but there are no `[RX ...]` lines after sending `g` or `r`, the ESP32 is not receiving any bytes from the YRM100. That points to wiring, power, enable, UART pin selection, or baud rate rather than USB serial.

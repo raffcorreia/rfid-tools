@@ -77,6 +77,18 @@ BB     xx   xx      xx     xx     ...           xx       7E
 | Sleep | `0x17` | Module sleep command. |
 | Set idle sleep time | `0x1D` | Idle sleep time command. |
 
+### UART Settings
+
+The C# demo opens the serial port as `8N1`. Its baud dropdown lists `9600`, `19200`, and `115200`, and the form defaults that dropdown to index `2`, which is `115200`.
+
+The lower-level communication helper recognizes `9600`, `19200`, `38400`, `57600`, and `115200` for firmware-download handshaking. The bring-up sketch probes this full set even though the normal demo default is `115200`.
+
+The demo's first reader-availability check sends `BuildGetModuleInfoFrame(MODULE_HARDWARE_VERSION_FIELD)`, which resolves to:
+
+```text
+BB 00 03 00 01 00 04 7E
+```
+
 ### Inventory Response
 
 Successful inventory produces notice frames with:
