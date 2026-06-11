@@ -5,9 +5,7 @@
   - advertise a stable custom RFID service
   - accept high-level JSON commands over BLE
   - emit JSON events and expose status
-
-  The YRM100 UART driver is intentionally not wired in this first sketch so the
-  existing yrm100_bringup sketch can continue to be tested independently.
+  - route inventory/config commands through the shared YRM100 UART driver
 */
 
 #include <Arduino.h>
@@ -16,19 +14,51 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 
+#include "../yrm100_driver/Yrm100Driver.h"
+
+#ifndef YRM100_RX_PIN
+#ifdef RX
+#define YRM100_RX_PIN RX
+#else
+#define YRM100_RX_PIN 44
+#endif
+#endif
+
+#ifndef YRM100_TX_PIN
+#ifdef TX
+#define YRM100_TX_PIN TX
+#else
+#define YRM100_TX_PIN 43
+#endif
+#endif
+
+#ifndef YRM100_DEFAULT_BAUD
+#define YRM100_DEFAULT_BAUD 115200
+#endif
+
 static constexpr const char *kDeviceName = "RFID Tools ESP32";
 static constexpr const char *kFirmwareVersion = "0.1.0";
 static constexpr const char *kServiceUuid = "63802432-69FC-406D-A538-FE33CEF32AEF";
 static constexpr const char *kCommandUuid = "DE0D7201-CC2B-46D9-8F92-564A209C37EF";
 static constexpr const char *kEventsUuid = "456F5CDA-632A-4541-A2A5-6FAEC234075E";
 static constexpr const char *kStatusUuid = "0AF05FBF-ADAA-4D94-8DCF-44A62F82332B";
+static constexpr int kYrmRxPin = YRM100_RX_PIN;
+static constexpr int kYrmTxPin = YRM100_TX_PIN;
+static constexpr uint32_t kYrmBaud = YRM100_DEFAULT_BAUD;
+static constexpr uint32_t kCommandTimeoutMs = 1500;
+static constexpr uint8_t kRegionUs = 0x02;
 
 static BLEServer *bleServer = nullptr;
 static BLECharacteristic *eventsCharacteristic = nullptr;
 static BLECharacteristic *statusCharacteristic = nullptr;
+static HardwareSerial YrmSerial(1);
+static rfid::yrm100::FrameParser yrmParser;
 
 static bool bleConnected = false;
 static bool scanActive = false;
+static bool readerReady = false;
+static int currentPowerCentiDbm = -1;
+static int currentRegion = -1;
 
 enum class AppCommand {
   Hello,
@@ -41,6 +71,56 @@ enum class AppCommand {
   SetRegion,
   Unknown,
 };
+
+enum class PendingAction {
+  None,
+  StartInventory,
+  StopInventory,
+  GetPower,
+  SetPower,
+  GetRegion,
+  SetRegion,
+};
+
+struct PendingCommand {
+  PendingAction action = PendingAction::None;
+  int id = 0;
+  uint8_t yrmCommand = 0;
+  uint32_t sentAtMs = 0;
+};
+
+static PendingCommand pending;
+
+static const char *pendingActionName(PendingAction action) {
+  switch (action) {
+    case PendingAction::None:
+      return "none";
+    case PendingAction::StartInventory:
+      return "startInventory";
+    case PendingAction::StopInventory:
+      return "stopInventory";
+    case PendingAction::GetPower:
+      return "getPower";
+    case PendingAction::SetPower:
+      return "setPower";
+    case PendingAction::GetRegion:
+      return "getRegion";
+    case PendingAction::SetRegion:
+      return "setRegion";
+  }
+  return "unknown";
+}
+
+static String bytesToHex(const std::vector<uint8_t> &bytes) {
+  static constexpr char kHex[] = "0123456789ABCDEF";
+  String out;
+  out.reserve(bytes.size() * 2);
+  for (uint8_t value : bytes) {
+    out += kHex[(value >> 4) & 0x0F];
+    out += kHex[value & 0x0F];
+  }
+  return out;
+}
 
 static int parseId(const String &message) {
   const int keyIndex = message.indexOf("\"id\"");
@@ -76,6 +156,47 @@ static int parseId(const String &message) {
     return 0;
   }
   return negative ? -value : value;
+}
+
+static bool parseNumberField(const String &message, const char *field, int &value) {
+  String key = "\"";
+  key += field;
+  key += "\"";
+
+  const int keyIndex = message.indexOf(key);
+  if (keyIndex < 0) {
+    return false;
+  }
+
+  const int colonIndex = message.indexOf(':', keyIndex + key.length());
+  if (colonIndex < 0) {
+    return false;
+  }
+
+  int valueStart = colonIndex + 1;
+  while (valueStart < static_cast<int>(message.length()) && isspace(message[valueStart])) {
+    valueStart++;
+  }
+
+  bool negative = false;
+  if (valueStart < static_cast<int>(message.length()) && message[valueStart] == '-') {
+    negative = true;
+    valueStart++;
+  }
+
+  int parsed = 0;
+  bool foundDigit = false;
+  while (valueStart < static_cast<int>(message.length()) && isdigit(message[valueStart])) {
+    foundDigit = true;
+    parsed = (parsed * 10) + (message[valueStart] - '0');
+    valueStart++;
+  }
+
+  if (!foundDigit) {
+    return false;
+  }
+  value = negative ? -parsed : parsed;
+  return true;
 }
 
 static bool parseStringField(const String &message, const char *field, String &value) {
@@ -144,33 +265,56 @@ static AppCommand parseCommand(const String &message) {
   return AppCommand::Unknown;
 }
 
-static bool commandRequiresReader(AppCommand command) {
-  switch (command) {
-    case AppCommand::StartInventory:
-    case AppCommand::GetPower:
-    case AppCommand::SetPower:
-    case AppCommand::GetRegion:
-    case AppCommand::SetRegion:
+static bool parseRegionValue(const String &message, uint8_t &region) {
+  String text;
+  if (parseStringField(message, "region", text)) {
+    text.toUpperCase();
+    if (text == "US" || text == "USA" || text == "FCC") {
+      region = kRegionUs;
       return true;
-    case AppCommand::Hello:
-    case AppCommand::Status:
-    case AppCommand::StopInventory:
-    case AppCommand::Unknown:
-      return false;
+    }
+    return false;
   }
-  return false;
+
+  int numericRegion = 0;
+  if (!parseNumberField(message, "region", numericRegion) || numericRegion < 0 || numericRegion > 255) {
+    return false;
+  }
+
+  region = static_cast<uint8_t>(numericRegion);
+  return true;
 }
 
-static String statusJson() {
-  String state = scanActive ? "scanning" : "idle";
-  String reader = "not_ready";
-  String connected = bleConnected ? "true" : "false";
+static bool parsePowerCentiDbm(const String &message, int16_t &centiDbm) {
+  int dbm = 0;
+  if (!parseNumberField(message, "dbm", dbm)) {
+    return false;
+  }
 
-  return String("{\"v\":1,\"id\":null,\"evt\":\"status\",\"state\":\"") + state +
+  if (dbm < 15 || dbm > 26) {
+    return false;
+  }
+
+  centiDbm = static_cast<int16_t>(dbm * 100);
+  return true;
+}
+
+static String statusJson(int id = -1) {
+  String state = scanActive ? "scanning" : "idle";
+  String reader = readerReady ? "ready" : "not_ready";
+  String connected = bleConnected ? "true" : "false";
+  String regionValue = currentRegion >= 0 ? String(currentRegion) : "null";
+  String powerValue = currentPowerCentiDbm >= 0 ? String(currentPowerCentiDbm / 100.0, 2) : "null";
+  String idValue = id >= 0 ? String(id) : "null";
+
+  return String("{\"v\":1,\"id\":") + idValue +
+         ",\"evt\":\"status\",\"state\":\"" + state +
          "\",\"reader\":\"" + reader +
          "\",\"bleConnected\":" + connected +
+         ",\"region\":" + regionValue +
+         ",\"powerDbm\":" + powerValue +
          ",\"fw\":\"" + kFirmwareVersion +
-         "\",\"caps\":[\"ble\",\"status\"]}";
+         "\",\"caps\":[\"inventory\",\"power\",\"region\"]}";
 }
 
 static void updateStatusCharacteristic() {
@@ -201,6 +345,197 @@ static void notifyError(int id, const char *code, const char *source, const char
   notifyEvent(json);
 }
 
+static void clearPending() {
+  pending = PendingCommand{};
+}
+
+static bool hasPending() {
+  return pending.action != PendingAction::None;
+}
+
+static bool sendYrmCommand(int id, PendingAction action, uint8_t yrmCommand, const std::vector<uint8_t> &frame) {
+  if (hasPending()) {
+    notifyError(id, "busy", "firmware", "Another reader command is in progress");
+    return false;
+  }
+
+  if (frame.empty()) {
+    notifyError(id, "invalid_command", "firmware", "Failed to build YRM100 command frame");
+    return false;
+  }
+
+  Serial.print("[YRM TX] ");
+  Serial.print(pendingActionName(action));
+  Serial.print(" ");
+  Serial.println(bytesToHex(frame));
+
+  YrmSerial.write(frame.data(), frame.size());
+  YrmSerial.flush();
+
+  pending.action = action;
+  pending.id = id;
+  pending.yrmCommand = yrmCommand;
+  pending.sentAtMs = millis();
+  return true;
+}
+
+static bool sendStopInventoryCommand(int id) {
+  if (hasPending() && pending.action != PendingAction::StartInventory) {
+    notifyError(id, "busy", "firmware", "Another reader command is in progress");
+    return false;
+  }
+
+  const auto frame = rfid::yrm100::buildStopMultipleInventory();
+  Serial.print("[YRM TX] stopInventory ");
+  Serial.println(bytesToHex(frame));
+  YrmSerial.write(frame.data(), frame.size());
+  YrmSerial.flush();
+
+  pending.action = PendingAction::StopInventory;
+  pending.id = id;
+  pending.yrmCommand = static_cast<uint8_t>(rfid::yrm100::Command::StopMultipleInventory);
+  pending.sentAtMs = millis();
+  return true;
+}
+
+static void stopInventoryForDisconnect() {
+  if (!scanActive && pending.action != PendingAction::StartInventory) {
+    clearPending();
+    return;
+  }
+
+  const auto frame = rfid::yrm100::buildStopMultipleInventory();
+  Serial.println("[YRM TX] stop inventory on disconnect");
+  YrmSerial.write(frame.data(), frame.size());
+  YrmSerial.flush();
+  scanActive = false;
+  clearPending();
+}
+
+static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
+  readerReady = true;
+
+  rfid::yrm100::InventoryTag tag;
+  if (rfid::yrm100::decodeInventoryTag(frame, tag)) {
+    notifyEvent(String("{\"v\":1,\"id\":null,\"evt\":\"tagSeen\",\"epc\":\"") +
+                bytesToHex(tag.epc) +
+                "\",\"pc\":\"" + String(tag.pc, HEX) +
+                "\",\"rssi\":" + String(tag.rssiDbm) +
+                ",\"crc\":\"" + String(tag.crc, HEX) + "\"}");
+    return;
+  }
+
+  rfid::yrm100::ErrorResponse error;
+  if (rfid::yrm100::decodeErrorResponse(frame, error)) {
+    notifyError(pending.id, "reader_error", "yrm100", (String("YRM100 error 0x") + String(error.code, HEX)).c_str());
+    clearPending();
+    updateStatusCharacteristic();
+    return;
+  }
+
+  if (!hasPending()) {
+    Serial.print("[YRM RX] unsolicited frame command=0x");
+    Serial.println(frame.command, HEX);
+    return;
+  }
+
+  if (frame.command != pending.yrmCommand) {
+    Serial.print("[YRM RX] command mismatch pending=0x");
+    Serial.print(pending.yrmCommand, HEX);
+    Serial.print(" got=0x");
+    Serial.println(frame.command, HEX);
+    return;
+  }
+
+  rfid::yrm100::CommandStatus status;
+  uint8_t region = 0;
+  uint16_t centiDbm = 0;
+
+  switch (pending.action) {
+    case PendingAction::StartInventory:
+      if (rfid::yrm100::decodeCommandStatus(frame, pending.yrmCommand, status) && status.status == 0x00) {
+        scanActive = true;
+        notifyEvent(String("{\"v\":1,\"id\":") + pending.id + ",\"evt\":\"scanStarted\"}");
+        clearPending();
+      }
+      break;
+    case PendingAction::StopInventory:
+      if (rfid::yrm100::decodeCommandStatus(frame, pending.yrmCommand, status) && status.status == 0x00) {
+        scanActive = false;
+        notifyEvent(String("{\"v\":1,\"id\":") + pending.id + ",\"evt\":\"scanStopped\",\"reason\":\"requested\"}");
+        clearPending();
+      }
+      break;
+    case PendingAction::GetPower:
+      if (rfid::yrm100::decodeTxPowerCentiDbm(frame, centiDbm)) {
+        currentPowerCentiDbm = centiDbm;
+        notifyEvent(String("{\"v\":1,\"id\":") + pending.id +
+                    ",\"evt\":\"result\",\"cmd\":\"getPower\",\"powerDbm\":" + String(centiDbm / 100.0, 2) + "}");
+        clearPending();
+      }
+      break;
+    case PendingAction::SetPower:
+      if (rfid::yrm100::decodeCommandStatus(frame, pending.yrmCommand, status) && status.status == 0x00) {
+        notifyEvent(String("{\"v\":1,\"id\":") + pending.id + ",\"evt\":\"result\",\"cmd\":\"setPower\",\"ok\":true}");
+        clearPending();
+      }
+      break;
+    case PendingAction::GetRegion:
+      if (rfid::yrm100::decodeRegion(frame, region)) {
+        currentRegion = region;
+        notifyEvent(String("{\"v\":1,\"id\":") + pending.id +
+                    ",\"evt\":\"result\",\"cmd\":\"getRegion\",\"region\":" + String(region) + "}");
+        clearPending();
+      }
+      break;
+    case PendingAction::SetRegion:
+      if (rfid::yrm100::decodeCommandStatus(frame, pending.yrmCommand, status) && status.status == 0x00) {
+        notifyEvent(String("{\"v\":1,\"id\":") + pending.id + ",\"evt\":\"result\",\"cmd\":\"setRegion\",\"ok\":true}");
+        clearPending();
+      }
+      break;
+    case PendingAction::None:
+      break;
+  }
+
+  updateStatusCharacteristic();
+}
+
+static void pollYrmSerial() {
+  while (YrmSerial.available() > 0) {
+    const auto event = yrmParser.feed(static_cast<uint8_t>(YrmSerial.read()));
+    switch (event.status) {
+      case rfid::yrm100::ParseStatus::FrameReady:
+        handleYrmFrame(event.frame);
+        break;
+      case rfid::yrm100::ParseStatus::FrameTooLarge:
+      case rfid::yrm100::ParseStatus::BadChecksum:
+      case rfid::yrm100::ParseStatus::BadEnd:
+        notifyError(pending.id, "parser_error", "yrm100", "Invalid YRM100 frame");
+        clearPending();
+        updateStatusCharacteristic();
+        break;
+      case rfid::yrm100::ParseStatus::Waiting:
+      case rfid::yrm100::ParseStatus::IgnoredByte:
+        break;
+    }
+  }
+}
+
+static void checkCommandTimeout() {
+  if (!hasPending()) {
+    return;
+  }
+
+  if (millis() - pending.sentAtMs < kCommandTimeoutMs) {
+    return;
+  }
+
+  notifyError(pending.id, "reader_timeout", "yrm100", "Reader did not respond");
+  clearPending();
+  updateStatusCharacteristic();
+}
+
 static void handleCommand(const String &message) {
   const int id = parseId(message);
 
@@ -213,26 +548,52 @@ static void handleCommand(const String &message) {
       notifyEvent(String("{\"v\":1,\"id\":") + id +
                   ",\"evt\":\"hello\",\"name\":\"" + kDeviceName +
                   "\",\"fw\":\"" + kFirmwareVersion +
-                  "\",\"caps\":[\"ble\",\"status\"]}");
+                  "\",\"caps\":[\"inventory\",\"power\",\"region\"]}");
       break;
     case AppCommand::Status:
-      notifyEvent(String("{\"v\":1,\"id\":") + id +
-                  ",\"evt\":\"status\",\"state\":\"" + (scanActive ? "scanning" : "idle") +
-                  "\",\"reader\":\"not_ready\",\"fw\":\"" + kFirmwareVersion +
-                  "\",\"caps\":[\"ble\",\"status\"]}");
+      notifyEvent(statusJson(id));
       break;
     case AppCommand::StopInventory:
-      scanActive = false;
-      updateStatusCharacteristic();
-      notifyEvent(String("{\"v\":1,\"id\":") + id + ",\"evt\":\"scanStopped\",\"reason\":\"requested\"}");
+      if (!scanActive && pending.action != PendingAction::StartInventory) {
+        notifyEvent(String("{\"v\":1,\"id\":") + id + ",\"evt\":\"scanStopped\",\"reason\":\"not_running\"}");
+        break;
+      }
+      sendStopInventoryCommand(id);
       break;
     case AppCommand::StartInventory:
+      sendYrmCommand(id, PendingAction::StartInventory, static_cast<uint8_t>(rfid::yrm100::Command::MultipleInventory),
+                     rfid::yrm100::buildMultipleInventory());
+      break;
     case AppCommand::GetPower:
+      sendYrmCommand(id, PendingAction::GetPower, static_cast<uint8_t>(rfid::yrm100::Command::GetTxPower),
+                     rfid::yrm100::buildGetTxPower());
+      break;
     case AppCommand::SetPower:
+      {
+        int16_t centiDbm = 0;
+        if (!parsePowerCentiDbm(message, centiDbm)) {
+          notifyError(id, "invalid_argument", "ble", "setPower requires integer dbm from 15 to 26");
+          break;
+        }
+        currentPowerCentiDbm = centiDbm;
+        sendYrmCommand(id, PendingAction::SetPower, static_cast<uint8_t>(rfid::yrm100::Command::SetTxPower),
+                       rfid::yrm100::buildSetTxPowerCentiDbm(centiDbm));
+      }
+      break;
     case AppCommand::GetRegion:
+      sendYrmCommand(id, PendingAction::GetRegion, static_cast<uint8_t>(rfid::yrm100::Command::GetRegion),
+                     rfid::yrm100::buildGetRegion());
+      break;
     case AppCommand::SetRegion:
-      if (commandRequiresReader(command)) {
-        notifyError(id, "not_implemented", "firmware", "YRM100 service wiring is not implemented yet");
+      {
+        uint8_t region = 0;
+        if (!parseRegionValue(message, region)) {
+          notifyError(id, "invalid_argument", "ble", "setRegion requires region \"US\" or numeric code");
+          break;
+        }
+        currentRegion = region;
+        sendYrmCommand(id, PendingAction::SetRegion, static_cast<uint8_t>(rfid::yrm100::Command::SetRegion),
+                       rfid::yrm100::buildSetRegion(region));
       }
       break;
     case AppCommand::Unknown:
@@ -251,7 +612,7 @@ class ServerCallbacks final : public BLEServerCallbacks {
 
   void onDisconnect(BLEServer *server) override {
     bleConnected = false;
-    scanActive = false;
+    stopInventoryForDisconnect();
     updateStatusCharacteristic();
     Serial.println("[BLE] central disconnected");
     server->getAdvertising()->start();
@@ -276,6 +637,15 @@ void setup() {
   Serial.println("RFID Tools ESP32 BLE service");
   Serial.print("Service UUID: ");
   Serial.println(kServiceUuid);
+  Serial.print("YRM100 UART RX pin: ");
+  Serial.print(kYrmRxPin);
+  Serial.print(" TX pin: ");
+  Serial.print(kYrmTxPin);
+  Serial.print(" baud: ");
+  Serial.println(kYrmBaud);
+
+  YrmSerial.begin(kYrmBaud, SERIAL_8N1, kYrmRxPin, kYrmTxPin);
+  readerReady = true;
 
   BLEDevice::init(kDeviceName);
   bleServer = BLEDevice::createServer();
@@ -316,6 +686,9 @@ void setup() {
 void loop() {
   static uint32_t lastStatusUpdateMs = 0;
   const uint32_t now = millis();
+
+  pollYrmSerial();
+  checkCommandTimeout();
 
   if (now - lastStatusUpdateMs >= 1000) {
     lastStatusUpdateMs = now;

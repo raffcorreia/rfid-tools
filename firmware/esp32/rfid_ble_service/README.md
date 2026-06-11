@@ -11,8 +11,11 @@ available while BLE service work progresses.
 - Exposes the documented RFID BLE service UUID.
 - Provides command, event notification, and status characteristics.
 - Handles `hello` and `status` commands.
-- Returns explicit `not_implemented` errors for inventory/config commands until the
-  YRM100 driver is wired into this firmware entry point.
+- Starts and stops YRM100 continuous inventory.
+- Emits `tagSeen` events from YRM100 inventory notices.
+- Gets/sets TX power.
+- Gets/sets region.
+- Sends a stop-inventory frame when BLE disconnects during an active scan.
 
 ## BLE UUIDs
 
@@ -32,6 +35,15 @@ Write UTF-8 JSON to the command characteristic:
 {"v":1,"id":2,"cmd":"status"}
 {"v":1,"id":3,"cmd":"startInventory"}
 {"v":1,"id":4,"cmd":"stopInventory"}
+{"v":1,"id":5,"cmd":"getPower"}
+{"v":1,"id":6,"cmd":"setPower","dbm":15}
+{"v":1,"id":7,"cmd":"getRegion"}
+{"v":1,"id":8,"cmd":"setRegion","region":"US"}
 ```
 
 Subscribe to the events characteristic to receive responses.
+
+## Arduino Build Note
+
+`Yrm100DriverLink.cpp` includes the shared `../yrm100_driver/Yrm100Driver.cpp` implementation
+so this sketch uses the same project-owned driver code as the host tests.

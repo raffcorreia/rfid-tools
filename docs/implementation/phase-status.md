@@ -31,11 +31,11 @@ The plan should stay mostly stable. This status file should change as work progr
 | Document stable BLE UUIDs | Done | `docs/solution-design/06-ble-protocol-design.md` defines service, command, events, and status UUIDs |
 | Define PHASE-003 command/event encoding | Done | `docs/solution-design/06-ble-protocol-design.md` defines protocol v1 JSON command/event examples |
 | Select ESP32 firmware framework for BLE service | Done | PHASE-003 starts with a separate Arduino-compatible sketch so bring-up firmware remains untouched |
-| Add BLE RFID service firmware entry point | In Progress | `firmware/esp32/rfid_ble_service/` advertises the BLE service and handles `hello`/`status` |
-| Add command dispatcher for hello/status/inventory/config | In Progress | `hello` and `status` are implemented; inventory/config return explicit `not_implemented` errors |
-| Wire dispatcher to `Yrm100Driver` | Pending | Not started |
+| Add BLE RFID service firmware entry point | In Progress | `firmware/esp32/rfid_ble_service/` advertises the BLE service and handles app commands |
+| Add command dispatcher for hello/status/inventory/config | Done | Commands route through an `AppCommand` enum and one-operation-at-a-time dispatcher |
+| Wire dispatcher to `Yrm100Driver` | Done | Inventory, stop, get/set power, and get/set region use shared `Yrm100Driver` command builders and parser |
 | Verify BLE discovery from iPhone or BLE tool | Pending | Awaiting firmware implementation and device test |
-| Verify active scan stops on stop command or disconnect | Pending | Awaiting firmware implementation and device test |
+| Verify active scan stops on stop command or disconnect | In Progress | Firmware sends stop on explicit `stopInventory`, BLE disconnect, and pending-start interruption; hardware verification still pending |
 
 ## Phase History
 
@@ -84,3 +84,5 @@ The plan should stay mostly stable. This status file should change as work progr
 | FU-002-05 | PHASE-002 | Retest uploaded bring-up sketch after protocol-driver extraction and capture Serial Monitor output. | Open |
 | FU-003-01 | PHASE-003 | Decide whether BLE service firmware stays Arduino-compatible or moves to PlatformIO/ESP-IDF before implementation grows. | Done |
 | FU-003-02 | PHASE-003 | Implement BLE service advertising with documented UUIDs. | In Progress |
+| FU-003-03 | PHASE-003 | Compile and flash `rfid_ble_service` on ESP32-S3 SuperMini. | Compile done; flash open |
+| FU-003-04 | PHASE-003 | Verify inventory stops on BLE `stopInventory` and disconnect. | Open |
