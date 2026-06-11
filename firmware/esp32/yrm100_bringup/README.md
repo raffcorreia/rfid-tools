@@ -32,6 +32,15 @@ These are based on common ESP32-S3 SuperMini `RX` / `TX` labels. `GPIO43` and `G
 
 The sketch prints the resolved GPIO numbers on boot. Those values are the firmware configuration, not proof that the physical silkscreen pads use those GPIOs.
 
+The sketch also uses the onboard addressable status LED:
+
+| Color | Meaning |
+|---|---|
+| Dim red | ESP32 is sending bytes to YRM100 |
+| Dim green | ESP32 received bytes from YRM100 |
+
+Receive indication takes priority over transmit indication. The default status LED pin is `GPIO48` with brightness `3`. If your board uses a different RGB LED pin, override `STATUS_LED_PIN` before upload.
+
 UART wiring is crossed:
 
 | Controller Side | Reader Side |

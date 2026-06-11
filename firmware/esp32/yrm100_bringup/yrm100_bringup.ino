@@ -39,8 +39,20 @@
 #define YRM100_DEFAULT_BAUD 115200
 #endif
 
+#ifndef STATUS_LED_PIN
+#define STATUS_LED_PIN 48
+#endif
+
+#ifndef STATUS_LED_BRIGHTNESS
+#define STATUS_LED_BRIGHTNESS 3
+#endif
+
 static constexpr int kYrmRxPin = YRM100_RX_PIN;  // ESP32 receives from YRM100 TXD.
 static constexpr int kYrmTxPin = YRM100_TX_PIN;  // ESP32 transmits to YRM100 RXD.
+static constexpr int kStatusLedPin = STATUS_LED_PIN;
+static constexpr uint8_t kStatusLedBrightness = STATUS_LED_BRIGHTNESS;
+static constexpr uint16_t kStatusLedTxMs = 40;
+static constexpr uint16_t kStatusLedRxMs = 80;
 static constexpr uint32_t kUsbSerialBaud = 115200;
 static constexpr uint32_t kDefaultYrmBaud = YRM100_DEFAULT_BAUD;
 static constexpr uint32_t kVisualTestBaud = 1200;
@@ -81,6 +93,7 @@ static uint8_t frame[256];
 static size_t frameLen = 0;
 static size_t expectedFrameLen = 0;
 static uint32_t lastRxAtMs = 0;
+static uint32_t statusLedOffAtMs = 0;
 
 static void printByteHex(uint8_t value) {
   if (value < 0x10) {
@@ -106,6 +119,33 @@ static uint8_t yrmChecksum(const uint8_t *data, size_t len) {
   return static_cast<uint8_t>(sum & 0xFF);
 }
 
+static void setStatusLed(uint8_t red, uint8_t green, uint8_t blue) {
+  if (kStatusLedPin < 0 || kStatusLedBrightness == 0) {
+    return;
+  }
+  neopixelWrite(kStatusLedPin, red, green, blue);
+}
+
+static void blinkTxLed() {
+  setStatusLed(kStatusLedBrightness, 0, 0);
+}
+
+static void finishTxLed() {
+  statusLedOffAtMs = millis() + kStatusLedTxMs;
+}
+
+static void blinkRxLed() {
+  setStatusLed(0, kStatusLedBrightness, 0);
+  statusLedOffAtMs = millis() + kStatusLedRxMs;
+}
+
+static void updateStatusLed() {
+  if (statusLedOffAtMs > 0 && static_cast<int32_t>(millis() - statusLedOffAtMs) >= 0) {
+    setStatusLed(0, 0, 0);
+    statusLedOffAtMs = 0;
+  }
+}
+
 static void sendCommand(const char *label, const uint8_t *command, size_t len) {
   Serial.print("[TX] ");
   Serial.print(label);
@@ -113,8 +153,10 @@ static void sendCommand(const char *label, const uint8_t *command, size_t len) {
   printBytes(command, len);
   Serial.println();
 
+  blinkTxLed();
   YrmSerial.write(command, len);
   YrmSerial.flush();
+  finishTxLed();
 }
 
 static void sendRepeatedByte(const char *label, uint8_t value, size_t count) {
@@ -125,10 +167,12 @@ static void sendRepeatedByte(const char *label, uint8_t value, size_t count) {
   Serial.print(" count=");
   Serial.println(count);
 
+  blinkTxLed();
   for (size_t i = 0; i < count; i++) {
     YrmSerial.write(value);
   }
   YrmSerial.flush();
+  finishTxLed();
 }
 
 static void resetFrameParser() {
@@ -191,6 +235,7 @@ static void printFrameSummary(const uint8_t *data, size_t len) {
 
 static void handleYrmByte(uint8_t value) {
   lastRxAtMs = millis();
+  blinkRxLed();
 
   if (frameLen == 0) {
     if (value != 0xBB) {
@@ -254,6 +299,11 @@ void setup() {
   Serial.println(kYrmRxPin);
   Serial.print("ESP32 TX pin: GPIO");
   Serial.println(kYrmTxPin);
+  Serial.print("Status LED pin: GPIO");
+  Serial.println(kStatusLedPin);
+  Serial.print("Status LED brightness: ");
+  Serial.println(kStatusLedBrightness);
+  setStatusLed(0, 0, 0);
   beginYrmSerial(currentYrmBaud);
 
   printHelp();
@@ -262,6 +312,8 @@ void setup() {
 }
 
 void loop() {
+  updateStatusLed();
+
   while (YrmSerial.available() > 0) {
     handleYrmByte(static_cast<uint8_t>(YrmSerial.read()));
   }
