@@ -93,6 +93,10 @@ static const uint8_t CMD_SINGLE_INVENTORY[] = {
   0xBB, 0x00, 0x22, 0x00, 0x00, 0x22, 0x7E
 };
 
+static const uint8_t CMD_MULTIPLE_INVENTORY[] = {
+  0xBB, 0x00, 0x27, 0x00, 0x03, 0x22, 0xFF, 0xFF, 0x4A, 0x7E
+};
+
 static const uint8_t CMD_STOP_MULTIPLE_INVENTORY[] = {
   0xBB, 0x00, 0x28, 0x00, 0x00, 0x28, 0x7E
 };
@@ -333,7 +337,8 @@ static void printHelp() {
   Serial.println("  r = send get region and get TX power commands");
   Serial.println("  t = set low TX power, then get TX power");
   Serial.println("  i = send single inventory command");
-  Serial.println("  s = send stop multiple inventory command");
+  Serial.println("  m = start multiple inventory command");
+  Serial.println("  s = stop multiple inventory command");
   Serial.println("  b = cycle YRM100 UART baud through SDK/demo supported rates");
   Serial.println("  p = probe all SDK/demo supported baud rates");
   Serial.println("  v = visual TX test: set 1200 baud and send long 0x55 pattern");
@@ -443,6 +448,10 @@ void loop() {
       case 'i':
       case 'I':
         sendCommand("single inventory", CMD_SINGLE_INVENTORY, sizeof(CMD_SINGLE_INVENTORY));
+        break;
+      case 'm':
+      case 'M':
+        sendCommand("start multiple inventory", CMD_MULTIPLE_INVENTORY, sizeof(CMD_MULTIPLE_INVENTORY));
         break;
       case 's':
       case 'S':

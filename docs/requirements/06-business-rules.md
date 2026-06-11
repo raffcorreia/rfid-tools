@@ -53,7 +53,7 @@ The iPhone app should send high-level commands to the ESP32, such as start inven
 
 - The target operating region is US 902-928 MHz.
 - The app or firmware must not silently switch to a different region.
-- RF power should default to a conservative value during bring-up.
+- RF power should default to a conservative value during bring-up. For the real app, use `15 dBm` as the default and expose a slider to select the power range before sending it to the ESP32.
 - Increasing RF power should be explicit and visible to the user in development builds.
 - Region and power commands must be confirmed from protocol documentation before use.
 

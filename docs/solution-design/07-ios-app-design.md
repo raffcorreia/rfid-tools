@@ -21,7 +21,7 @@
 | Saved Tags | Show labeled saved reads such as `PLA Blue TAG` |
 | Tag Detail | Show EPC, memory data, RSSI history, timestamp |
 | Write / Clone | Choose manual data or saved read source, confirm write |
-| Settings | Reader power, region/status, firmware info |
+| Settings | Reader power slider, region/status, firmware info |
 | Diagnostics | BLE and RFID command/event log |
 
 ## Saved Tag Data
@@ -65,6 +65,11 @@ Local saved read fields:
 - The app must show which saved read or manual value is the write source.
 - The app must not claim a clone is complete without firmware success and optional verification.
 - Diagnostics should be available but not dominate normal scanning.
+
+## Reader Power
+
+- The default reader power for the real app should be `15 dBm`.
+- The settings screen should expose a slider for selecting power before sending it to the ESP32.
 
 ## iOS Constraints
 
