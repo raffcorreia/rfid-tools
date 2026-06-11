@@ -70,6 +70,7 @@ Serial monitor commands:
 | `g` | Send get module info |
 | `i` | Send single inventory |
 | `s` | Send stop multiple inventory |
+| `b` | Toggle YRM100 UART baud between `115200` and `38400`, then send get module info |
 | `h` | Print help |
 
 ## Success Criteria
@@ -87,4 +88,7 @@ If no bytes arrive:
 - Confirm common ground.
 - Confirm YRM100 VCC is stable.
 - Swap UART TX/RX wires once before changing firmware assumptions.
+- Type `b` to test the vendor-mentioned alternate `38400` baud.
 - Verify the board-labeled `TX` / `RX` pins map to `GPIO43` / `GPIO44` for the selected board profile.
+
+If the boot message prints but there are no `[RX ...]` lines after sending `g`, the ESP32 is not receiving any bytes from the YRM100. That points to wiring, power, enable, UART pin selection, or baud rate rather than USB serial.

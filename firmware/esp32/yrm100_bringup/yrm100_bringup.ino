@@ -33,6 +33,7 @@
 #endif
 
 HardwareSerial YrmSerial(1);
+static uint32_t currentYrmBaud = YRM100_UART_BAUD;
 
 static const uint8_t CMD_GET_MODULE_INFO[] = {
   0xBB, 0x00, 0x03, 0x00, 0x00, 0x03, 0x7E
@@ -50,7 +51,6 @@ static uint8_t frame[256];
 static size_t frameLen = 0;
 static size_t expectedFrameLen = 0;
 static uint32_t lastRxAtMs = 0;
-static uint32_t lastHeartbeatAtMs = 0;
 
 static void printByteHex(uint8_t value) {
   if (value < 0x10) {
@@ -90,6 +90,17 @@ static void sendCommand(const char *label, const uint8_t *command, size_t len) {
 static void resetFrameParser() {
   frameLen = 0;
   expectedFrameLen = 0;
+}
+
+static void beginYrmSerial(uint32_t baud) {
+  currentYrmBaud = baud;
+  YrmSerial.end();
+  delay(50);
+  YrmSerial.begin(currentYrmBaud, SERIAL_8N1, YRM100_UART_RX_PIN, YRM100_UART_TX_PIN);
+  resetFrameParser();
+
+  Serial.print("[UART] YRM100 baud set to ");
+  Serial.println(currentYrmBaud);
 }
 
 static void printFrameSummary(const uint8_t *data, size_t len) {
@@ -179,6 +190,7 @@ static void printHelp() {
   Serial.println("  g = send get module info command");
   Serial.println("  i = send single inventory command");
   Serial.println("  s = send stop multiple inventory command");
+  Serial.println("  b = toggle YRM100 UART baud between 115200 and 38400");
   Serial.println("  h = print this help");
   Serial.println();
 }
@@ -196,10 +208,7 @@ void setup() {
   Serial.println(YRM100_UART_RX_PIN);
   Serial.print("ESP32 TX pin: GPIO");
   Serial.println(YRM100_UART_TX_PIN);
-  Serial.print("YRM100 UART baud: ");
-  Serial.println(YRM100_UART_BAUD);
-
-  YrmSerial.begin(YRM100_UART_BAUD, SERIAL_8N1, YRM100_UART_RX_PIN, YRM100_UART_TX_PIN);
+  beginYrmSerial(currentYrmBaud);
 
   printHelp();
   delay(500);
@@ -207,11 +216,6 @@ void setup() {
 }
 
 void loop() {
-  if (millis() - lastHeartbeatAtMs > 2000) {
-    lastHeartbeatAtMs = millis();
-    Serial.println("[USB] YRM100 bring-up sketch running. Type h for help.");
-  }
-
   while (YrmSerial.available() > 0) {
     handleYrmByte(static_cast<uint8_t>(YrmSerial.read()));
   }
@@ -237,6 +241,11 @@ void loop() {
       case 's':
       case 'S':
         sendCommand("stop multiple inventory", CMD_STOP_MULTIPLE_INVENTORY, sizeof(CMD_STOP_MULTIPLE_INVENTORY));
+        break;
+      case 'b':
+      case 'B':
+        beginYrmSerial(currentYrmBaud == 115200 ? 38400 : 115200);
+        sendCommand("get module info", CMD_GET_MODULE_INFO, sizeof(CMD_GET_MODULE_INFO));
         break;
       case 'h':
       case 'H':
