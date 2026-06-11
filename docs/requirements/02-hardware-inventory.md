@@ -155,12 +155,14 @@ First prototype YRM100 wiring:
 | YRM100 Pin | YRM100 Signal | ESP32-S3 SuperMini Connection | Direction / Purpose | Validation |
 |---|---|---|---|---|
 | 1 | `GND` | `GND` | Common ground | Photo-derived board pin; required |
-| 2 | `EN` | `3V3` | Holds reader enabled | Uses vendor EN high threshold greater than 1.5V |
+| 2 | `EN` | `3V3`, or `5V` through `10k` if bring-up remains silent | Holds reader enabled | Vendor says EN high threshold is greater than 1.5V; working Flipper reference uses `10k` pull-up to `5V` |
 | 3 | `RXD` | `TX` | ESP32 transmits to YRM100 | Validate with first command response |
 | 4 | `TXD` | `RX` | ESP32 receives from YRM100 | Validate with first command response |
 | 5 | `VCC` | `5V` | Reader power from USB-powered board rail | Must remain stable under peak pulse current below 260mA |
 
 If the reader is unstable, use an external regulated 5V supply for YRM100 VCC with common ground to the ESP32.
+
+External working-reference note, 2026-06-11: `haffnerriley/Simultaneous-UHF-RFID-FlipperZero` documents YRM100 support and shows a YRM100 wiring schematic with `VCC` to `+5V`, `GND` to ground, crossed UART (`TXD` to host `RX`, `RXD` to host `TX`), `EN` pulled up to `+5V` through `10k`, and local `100nF` plus `22uF` capacitors across the `+5V` rail. Its source uses the same YRM100 diagnostic command bytes and default `115200` baud as this project.
 
 Validation criteria:
 

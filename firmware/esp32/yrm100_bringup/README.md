@@ -21,6 +21,12 @@ Use the populated YRM100 `J1` cable, not the unconfirmed `J2` middle pads.
 | `TXD` | board-labeled `RX` |
 | `VCC` | `5V` USB rail, or external regulated 5V with common ground |
 
+If command/baud probing produces no YRM100 response, try matching the working Flipper Zero YRM100 reference wiring more closely:
+
+- Pull `EN` to `5V` through a `10k` resistor instead of tying it directly to ESP32 `3V3`.
+- Add local decoupling across YRM100 `VCC` and `GND`: `100nF` plus `22uF`.
+- Keep UART crossed: YRM100 `TXD` to ESP32 `RX`, YRM100 `RXD` to ESP32 `TX`.
+
 Default sketch pin assumptions:
 
 | Signal | ESP32 GPIO |
