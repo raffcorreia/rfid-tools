@@ -56,6 +56,7 @@ static constexpr uint16_t kStatusLedRxMs = 80;
 static constexpr uint32_t kUsbSerialBaud = 115200;
 static constexpr uint32_t kDefaultYrmBaud = YRM100_DEFAULT_BAUD;
 static constexpr uint32_t kVisualTestBaud = 1200;
+static constexpr uint32_t kStartupListenMs = 5000;
 static constexpr size_t kVisualTestBytes = 512;
 
 HardwareSerial YrmSerial(1);
@@ -276,6 +277,7 @@ static void handleYrmByte(uint8_t value) {
 static void printHelp() {
   Serial.println();
   Serial.println("YRM100 UART bring-up commands:");
+  Serial.println("  l = listen only; send nothing");
   Serial.println("  g = send hardware/software/manufacturer version commands");
   Serial.println("  r = send get region and get TX power commands");
   Serial.println("  i = send single inventory command");
@@ -307,7 +309,22 @@ void setup() {
   beginYrmSerial(currentYrmBaud);
 
   printHelp();
-  delay(500);
+  Serial.print("[LISTEN] passive startup window, ms=");
+  Serial.println(kStartupListenMs);
+  const uint32_t listenUntilMs = millis() + kStartupListenMs;
+  while (static_cast<int32_t>(millis() - listenUntilMs) < 0) {
+    updateStatusLed();
+    while (YrmSerial.available() > 0) {
+      handleYrmByte(static_cast<uint8_t>(YrmSerial.read()));
+    }
+    if (frameLen > 0 && millis() - lastRxAtMs > 500) {
+      Serial.print("[RX partial timeout] ");
+      printBytes(frame, frameLen);
+      Serial.println();
+      resetFrameParser();
+    }
+    delay(1);
+  }
   sendCommand("get hardware version", CMD_GET_HARDWARE_VERSION, sizeof(CMD_GET_HARDWARE_VERSION));
 }
 
@@ -328,6 +345,10 @@ void loop() {
   while (Serial.available() > 0) {
     const char input = static_cast<char>(Serial.read());
     switch (input) {
+      case 'l':
+      case 'L':
+        Serial.println("[LISTEN] passive mode; no command sent");
+        break;
       case 'g':
       case 'G':
         sendCommand("get hardware version", CMD_GET_HARDWARE_VERSION, sizeof(CMD_GET_HARDWARE_VERSION));

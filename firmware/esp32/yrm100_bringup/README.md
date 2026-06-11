@@ -83,10 +83,13 @@ BB 00 03 00 01 00 04 7E
 
 This is the get-hardware-version command from the vendor command examples and should return a YRM100 frame if UART wiring is correct.
 
+Before sending that command, the sketch opens the YRM100 UART and waits in a passive listen window for `5` seconds. During that window it prints any bytes received from the module. This is intended to catch any module boot output if the YRM100 is powered after the ESP32 is already running.
+
 Serial monitor commands:
 
 | Key | Action |
 |---|---|
+| `l` | Listen only; send nothing |
 | `g` | Send hardware version, software version, and manufacturer commands |
 | `r` | Send get region and get TX power commands |
 | `i` | Send single inventory |
