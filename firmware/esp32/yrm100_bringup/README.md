@@ -97,6 +97,7 @@ Serial monitor commands:
 | `i` | Send single inventory |
 | `m` | Start multiple inventory |
 | `s` | Stop multiple inventory |
+| `w` | Write the demo EPC value to the last inventoried tag |
 | `b` | Cycle YRM100 UART baud through SDK/demo supported rates, then send hardware version |
 | `p` | Probe all SDK/demo supported baud rates with hardware-version command |
 | `v` | Visual TX test: switch UART to `1200` baud and send a long `0x55` pattern |
@@ -138,3 +139,11 @@ If the boot message prints but there are no `[RX ...]` lines after sending `g` o
 If sending `i` resets the ESP32, inventory is likely enabling the YRM100 RF power amplifier and causing a supply dip or watchdog-class instability. Try `t` first to lower TX power, then retry `i`. If reset still happens, power the YRM100 from a separate regulated 5V supply with common ground to the ESP32 and add local decoupling near the YRM100 `VCC` / `GND`.
 
 Use `m` to start continuous inventory and `s` to stop it. Keep `i` for one-shot reads.
+
+The `w` command is a bring-up helper. It first selects the last EPC the sketch inventoried, then writes the demo EPC value:
+
+```text
+E2 80 11 70 40 00 02 1D 35 AE 40 08
+```
+
+This is an EPC-bank write only. It does not attempt reserved-memory, TID, lock, kill, or password operations.

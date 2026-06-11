@@ -101,6 +101,19 @@ static const uint8_t CMD_STOP_MULTIPLE_INVENTORY[] = {
   0xBB, 0x00, 0x28, 0x00, 0x00, 0x28, 0x7E
 };
 
+static const uint8_t CMD_WRITE_DEMO_EPC[] = {
+  0xE2, 0x80, 0x11, 0x70, 0x40, 0x00, 0x02, 0x1D, 0x35, 0xAE, 0x40, 0x08
+};
+
+static constexpr uint8_t kSelectTargetS0 = 0x00;
+static constexpr uint8_t kSelectActionAssert = 0x00;
+static constexpr uint8_t kSelectMemBankEpc = 0x01;
+static constexpr uint32_t kSelectPointerBits = 0x20;
+static constexpr uint8_t kWriteAccessPassword[4] = {0x00, 0x00, 0x00, 0x00};
+static constexpr uint8_t kWriteMemBankEpc = 0x01;
+static constexpr uint16_t kWriteEpcStartWord = 0x0002;
+static constexpr size_t kMaxWritePayloadBytes = 64;
+
 static uint8_t frame[256];
 static size_t frameLen = 0;
 static size_t expectedFrameLen = 0;
@@ -108,6 +121,11 @@ static uint32_t lastRxAtMs = 0;
 static uint32_t statusLedOffAtMs = 0;
 static bool rawCaptureEnabled = false;
 static uint32_t rawCaptureUntilMs = 0;
+static uint8_t lastInventoryEpc[64];
+static size_t lastInventoryEpcLen = 0;
+static uint8_t lastInventoryPc[2];
+static uint8_t lastInventoryRssi = 0;
+static bool lastInventoryValid = false;
 
 static void resetFrameParser();
 static void handleYrmByte(uint8_t value);
@@ -199,6 +217,104 @@ static void sendRepeatedByte(const char *label, uint8_t value, size_t count) {
   finishTxLed();
 }
 
+static bool buildFrame(uint8_t command, const uint8_t *payload, size_t payloadLen, uint8_t *out, size_t outCap, size_t *outLen) {
+  const size_t frameLen = 7 + payloadLen;
+  if (frameLen > outCap) {
+    return false;
+  }
+
+  out[0] = 0xBB;
+  out[1] = 0x00;
+  out[2] = command;
+  out[3] = static_cast<uint8_t>((payloadLen >> 8) & 0xFF);
+  out[4] = static_cast<uint8_t>(payloadLen & 0xFF);
+
+  if (payloadLen > 0 && payload != nullptr) {
+    memcpy(out + 5, payload, payloadLen);
+  }
+
+  out[5 + payloadLen] = yrmChecksum(out, 5 + payloadLen);
+  out[6 + payloadLen] = 0x7E;
+  *outLen = frameLen;
+  return true;
+}
+
+static bool sendDynamicCommand(const char *label, uint8_t command, const uint8_t *payload, size_t payloadLen) {
+  uint8_t commandFrame[128];
+  size_t commandFrameLen = 0;
+
+  if (!buildFrame(command, payload, payloadLen, commandFrame, sizeof(commandFrame), &commandFrameLen)) {
+    Serial.print("[TX] unable to build frame for ");
+    Serial.println(label);
+    return false;
+  }
+
+  sendCommand(label, commandFrame, commandFrameLen);
+  return true;
+}
+
+static bool selectTagByEpc(const uint8_t *epc, size_t epcLen) {
+  if (epc == nullptr || epcLen == 0 || epcLen > 255) {
+    Serial.println("[WRITE] invalid EPC selection source");
+    return false;
+  }
+
+  uint8_t payload[1 + 4 + 1 + 1 + 64];
+  const uint8_t combByte = static_cast<uint8_t>((kSelectTargetS0 << 5) | (kSelectActionAssert << 2) | kSelectMemBankEpc);
+  const uint8_t selectMaskLen = static_cast<uint8_t>(epcLen * 8);
+
+  payload[0] = combByte;
+  payload[1] = static_cast<uint8_t>((kSelectPointerBits >> 24) & 0xFF);
+  payload[2] = static_cast<uint8_t>((kSelectPointerBits >> 16) & 0xFF);
+  payload[3] = static_cast<uint8_t>((kSelectPointerBits >> 8) & 0xFF);
+  payload[4] = static_cast<uint8_t>(kSelectPointerBits & 0xFF);
+  payload[5] = selectMaskLen;
+  payload[6] = 0x00;  // truncated disabled
+  memcpy(payload + 7, epc, epcLen);
+
+  return sendDynamicCommand("set select", 0x0C, payload, 7 + epcLen);
+}
+
+static bool writeEpcBytesToLastSeenTag(const uint8_t *newEpc, size_t newEpcLen) {
+  if (newEpc == nullptr || newEpcLen == 0 || (newEpcLen % 2) != 0) {
+    Serial.println("[WRITE] EPC data must be non-empty and word aligned");
+    return false;
+  }
+
+  if (newEpcLen > kMaxWritePayloadBytes) {
+    Serial.println("[WRITE] EPC data exceeds module write payload limit");
+    return false;
+  }
+
+  if (!lastInventoryValid || lastInventoryEpcLen == 0) {
+    Serial.println("[WRITE] no inventoried tag available; read a tag first");
+    return false;
+  }
+
+  if (!selectTagByEpc(lastInventoryEpc, lastInventoryEpcLen)) {
+    return false;
+  }
+
+  uint8_t payload[4 + 1 + 2 + 2 + kMaxWritePayloadBytes];
+  const uint16_t wordCount = static_cast<uint16_t>(newEpcLen / 2);
+
+  memcpy(payload, kWriteAccessPassword, sizeof(kWriteAccessPassword));
+  payload[4] = kWriteMemBankEpc;
+  payload[5] = static_cast<uint8_t>((kWriteEpcStartWord >> 8) & 0xFF);
+  payload[6] = static_cast<uint8_t>(kWriteEpcStartWord & 0xFF);
+  payload[7] = static_cast<uint8_t>((wordCount >> 8) & 0xFF);
+  payload[8] = static_cast<uint8_t>(wordCount & 0xFF);
+  memcpy(payload + 9, newEpc, newEpcLen);
+
+  Serial.print("[WRITE] target EPC ");
+  printBytes(lastInventoryEpc, lastInventoryEpcLen);
+  Serial.print(" -> new EPC ");
+  printBytes(newEpc, newEpcLen);
+  Serial.println();
+
+  return sendDynamicCommand("write EPC", 0x49, payload, 9 + newEpcLen);
+}
+
 static void drainYrmFor(uint32_t durationMs) {
   const uint32_t untilMs = millis() + durationMs;
   while (static_cast<int32_t>(millis() - untilMs) < 0) {
@@ -278,6 +394,34 @@ static void printFrameSummary(const uint8_t *data, size_t len) {
       Serial.print(" text=\"");
       printAsciiPayload(data + 6, payloadLen - 1);
       Serial.println("\"");
+    } else if (type == 0x02 && command == 0x22 && payloadLen >= 5) {
+      const uint16_t pc = (static_cast<uint16_t>(data[6]) << 8) | data[7];
+      const size_t payloadEpcLen = payloadLen - 5;
+      const size_t pcEpcLen = static_cast<size_t>((pc >> 11) & 0x1F) * 2;
+      size_t epcLen = payloadEpcLen;
+
+      if (pcEpcLen > 0 && pcEpcLen <= payloadEpcLen) {
+        epcLen = pcEpcLen;
+      }
+
+      if (epcLen > sizeof(lastInventoryEpc)) {
+        epcLen = sizeof(lastInventoryEpc);
+      }
+
+      lastInventoryRssi = data[5];
+      lastInventoryPc[0] = data[6];
+      lastInventoryPc[1] = data[7];
+      memcpy(lastInventoryEpc, data + 8, epcLen);
+      lastInventoryEpcLen = epcLen;
+      lastInventoryValid = epcLen > 0;
+
+      Serial.print("[TAG] RSSI=0x");
+      printByteHex(lastInventoryRssi);
+      Serial.print(" PC=");
+      printBytes(lastInventoryPc, sizeof(lastInventoryPc));
+      Serial.print(" EPC=");
+      printBytes(lastInventoryEpc, lastInventoryEpcLen);
+      Serial.println();
     }
   }
 }
@@ -339,6 +483,7 @@ static void printHelp() {
   Serial.println("  i = send single inventory command");
   Serial.println("  m = start multiple inventory command");
   Serial.println("  s = stop multiple inventory command");
+  Serial.println("  w = write a demo EPC value to the last inventoried tag");
   Serial.println("  b = cycle YRM100 UART baud through SDK/demo supported rates");
   Serial.println("  p = probe all SDK/demo supported baud rates");
   Serial.println("  v = visual TX test: set 1200 baud and send long 0x55 pattern");
@@ -456,6 +601,10 @@ void loop() {
       case 's':
       case 'S':
         sendCommand("stop multiple inventory", CMD_STOP_MULTIPLE_INVENTORY, sizeof(CMD_STOP_MULTIPLE_INVENTORY));
+        break;
+      case 'w':
+      case 'W':
+        writeEpcBytesToLastSeenTag(CMD_WRITE_DEMO_EPC, sizeof(CMD_WRITE_DEMO_EPC));
         break;
       case 'b':
       case 'B':
