@@ -379,6 +379,10 @@ void setup() {
     delay(1);
   }
   sendCommand("get hardware version", CMD_GET_HARDWARE_VERSION, sizeof(CMD_GET_HARDWARE_VERSION));
+  drainYrmFor(250);
+  sendCommand("get region", CMD_GET_REGION, sizeof(CMD_GET_REGION));
+  drainYrmFor(250);
+  sendCommand("get TX power", CMD_GET_TX_POWER, sizeof(CMD_GET_TX_POWER));
 }
 
 void loop() {

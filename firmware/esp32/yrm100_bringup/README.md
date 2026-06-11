@@ -75,7 +75,7 @@ If Serial Monitor is blank after upload:
 - Type `h` in Serial Monitor and press send.
 - Use the USB-C connector on the ESP32 board, not an external UART adapter, unless the board profile is configured for UART serial.
 
-On boot, the sketch sends:
+On boot, after the passive listen window, the sketch sends hardware version, region, and TX power reads. The first command is:
 
 ```text
 BB 00 03 00 01 00 04 7E
