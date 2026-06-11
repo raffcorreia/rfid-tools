@@ -1,7 +1,7 @@
 # Phase Status - RFID Tools
 
 **Current Phase**: PHASE-003 - ESP32 BLE RFID Service
-**Current Status**: PHASE-002 Complete
+**Current Status**: PHASE-003 In Progress
 **Previous Phase**: PHASE-002 - YRM100 UART Protocol Driver
 **Last Updated**: 2026-06-11
 
@@ -24,17 +24,18 @@ The plan should stay mostly stable. This status file should change as work progr
 
 ## Current Phase Checklist
 
-### PHASE-002 - YRM100 UART Protocol Driver
+### PHASE-003 - ESP32 BLE RFID Service
 
 | Item | Status | Evidence |
 |---|---|---|
-| Define driver module location and structure | Done | `firmware/esp32/yrm100_driver/` contains plain C++17 driver code |
-| Extract frame builder from bring-up sketch | Done | `Yrm100Driver` builds `0xBB ... 0x7E` frames and command frames |
-| Extract stream parser from bring-up sketch | Done | `FrameParser` handles stray bytes, split frames, multiple frames, checksum, and end marker validation |
-| Add typed inventory/tag parsing | Done | `decodeInventoryTag` emits RSSI, PC, EPC, and tag CRC |
-| Add command builders for core YRM100 operations | Done | Module info, inventory, read/write memory, select, region, and TX power builders implemented |
-| Add protocol test vectors | Done | `tools/protocol/test-vectors/yrm100-frames.md` records confirmed command/response/malformed examples |
-| Add host-runnable parser/builder tests | Done | `tools/protocol/scripts/run-yrm100-driver-tests.sh` passes without live hardware |
+| Document stable BLE UUIDs | Done | `docs/solution-design/06-ble-protocol-design.md` defines service, command, events, and status UUIDs |
+| Define PHASE-003 command/event encoding | Done | `docs/solution-design/06-ble-protocol-design.md` defines protocol v1 JSON command/event examples |
+| Select ESP32 firmware framework for BLE service | Done | PHASE-003 starts with a separate Arduino-compatible sketch so bring-up firmware remains untouched |
+| Add BLE RFID service firmware entry point | In Progress | `firmware/esp32/rfid_ble_service/` advertises the BLE service and handles `hello`/`status` |
+| Add command dispatcher for hello/status/inventory/config | In Progress | `hello` and `status` are implemented; inventory/config return explicit `not_implemented` errors |
+| Wire dispatcher to `Yrm100Driver` | Pending | Not started |
+| Verify BLE discovery from iPhone or BLE tool | Pending | Awaiting firmware implementation and device test |
+| Verify active scan stops on stop command or disconnect | Pending | Awaiting firmware implementation and device test |
 
 ## Phase History
 
@@ -61,6 +62,7 @@ The plan should stay mostly stable. This status file should change as work progr
 | 2026-06-11 | PHASE-001 | Complete module bring-up after successful inventory and EPC write verification. | Single inventory, continuous inventory, and EPC clone/write flow all worked with the YRM100 and H9 tags. |
 | 2026-06-11 | PHASE-002 | Start protocol driver phase from the proven bring-up sketch. | The bring-up sketch contains validated command bytes, frame parsing, inventory decoding, power commands, and write/clone sequencing that should be formalized into a driver. |
 | 2026-06-11 | PHASE-002 | Keep YRM100 driver plain C++17 with host tests. | The parser and frame builder need to be tested without live RFID hardware or Arduino IDE. |
+| 2026-06-11 | PHASE-003 | Start BLE service as a separate Arduino-compatible sketch. | This preserves the proven bring-up sketch while creating a BLE peripheral that can be tested before full YRM100 integration. |
 
 ## Open Follow-Ups
 
@@ -79,3 +81,6 @@ The plan should stay mostly stable. This status file should change as work progr
 | FU-002-02 | PHASE-002 | Convert working frame builder/parser code into reusable driver code. | Done |
 | FU-002-03 | PHASE-002 | Capture protocol fixtures from confirmed hardware logs. | Done |
 | FU-002-04 | PHASE-002 | Add host-runnable parser and frame-builder tests. | Done |
+| FU-002-05 | PHASE-002 | Retest uploaded bring-up sketch after protocol-driver extraction and capture Serial Monitor output. | Open |
+| FU-003-01 | PHASE-003 | Decide whether BLE service firmware stays Arduino-compatible or moves to PlatformIO/ESP-IDF before implementation grows. | Done |
+| FU-003-02 | PHASE-003 | Implement BLE service advertising with documented UUIDs. | In Progress |
