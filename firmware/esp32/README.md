@@ -17,6 +17,12 @@ The firmware framework is deferred until the development workflow is confirmed.
 
 The firmware must be testable over USB serial without requiring the iPhone app for initial YRM100 bring-up.
 
+## Bring-Up Tools
+
+| Tool | Purpose |
+|---|---|
+| `yrm100_bringup/` | Arduino-compatible sketch for PHASE-001 UART wiring validation |
+
 ## First Bring-Up Wiring
 
 Use the board-labeled external pins from the selected ESP32-S3 SuperMini:
