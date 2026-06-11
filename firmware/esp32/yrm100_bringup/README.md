@@ -69,19 +69,20 @@ If Serial Monitor is blank after upload:
 On boot, the sketch sends:
 
 ```text
-BB 00 03 00 00 03 7E
+BB 00 03 00 01 00 04 7E
 ```
 
-This is the get-module-info command and should return a YRM100 frame if UART wiring is correct.
+This is the get-hardware-version command from the vendor command examples and should return a YRM100 frame if UART wiring is correct.
 
 Serial monitor commands:
 
 | Key | Action |
 |---|---|
-| `g` | Send get module info |
+| `g` | Send hardware version, software version, and manufacturer commands |
+| `r` | Send get region and get TX power commands |
 | `i` | Send single inventory |
 | `s` | Send stop multiple inventory |
-| `b` | Toggle YRM100 UART baud between `115200` and `38400`, then send get module info |
+| `b` | Toggle YRM100 UART baud between `115200` and `38400`, then send hardware version |
 | `v` | Visual TX test: switch UART to `1200` baud and send a long `0x55` pattern |
 | `h` | Print help |
 
@@ -114,4 +115,4 @@ If no bytes arrive:
 - Type `b` to test the vendor-mentioned alternate `38400` baud.
 - Verify the board-labeled `TX` / `RX` pins map to `GPIO43` / `GPIO44` for the selected board profile.
 
-If the boot message prints but there are no `[RX ...]` lines after sending `g`, the ESP32 is not receiving any bytes from the YRM100. That points to wiring, power, enable, UART pin selection, or baud rate rather than USB serial.
+If the boot message prints but there are no `[RX ...]` lines after sending `g` or `r`, the ESP32 is not receiving any bytes from the YRM100. That points to wiring, power, enable, UART pin selection, or baud rate rather than USB serial.

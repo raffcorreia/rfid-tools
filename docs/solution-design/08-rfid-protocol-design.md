@@ -25,7 +25,7 @@ Checksum is the low byte of the sum from `type` through the final payload byte.
 
 | Firmware Operation | YRM100 Command |
 |---|---|
-| Get hardware/software/manufacturer | `0x03` |
+| Get hardware/software/manufacturer | `0x03` with selector `0x00`, `0x01`, or `0x02` |
 | Single inventory | `0x22` |
 | Multiple inventory | `0x27` |
 | Stop multiple inventory | `0x28` |

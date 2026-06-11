@@ -49,8 +49,24 @@ static constexpr size_t kVisualTestBytes = 512;
 HardwareSerial YrmSerial(1);
 static uint32_t currentYrmBaud = kDefaultYrmBaud;
 
-static const uint8_t CMD_GET_MODULE_INFO[] = {
-  0xBB, 0x00, 0x03, 0x00, 0x00, 0x03, 0x7E
+static const uint8_t CMD_GET_HARDWARE_VERSION[] = {
+  0xBB, 0x00, 0x03, 0x00, 0x01, 0x00, 0x04, 0x7E
+};
+
+static const uint8_t CMD_GET_SOFTWARE_VERSION[] = {
+  0xBB, 0x00, 0x03, 0x00, 0x01, 0x01, 0x05, 0x7E
+};
+
+static const uint8_t CMD_GET_MANUFACTURER[] = {
+  0xBB, 0x00, 0x03, 0x00, 0x01, 0x02, 0x06, 0x7E
+};
+
+static const uint8_t CMD_GET_REGION[] = {
+  0xBB, 0x00, 0x08, 0x00, 0x00, 0x08, 0x7E
+};
+
+static const uint8_t CMD_GET_TX_POWER[] = {
+  0xBB, 0x00, 0xB7, 0x00, 0x00, 0xB7, 0x7E
 };
 
 static const uint8_t CMD_SINGLE_INVENTORY[] = {
@@ -215,7 +231,8 @@ static void handleYrmByte(uint8_t value) {
 static void printHelp() {
   Serial.println();
   Serial.println("YRM100 UART bring-up commands:");
-  Serial.println("  g = send get module info command");
+  Serial.println("  g = send hardware/software/manufacturer version commands");
+  Serial.println("  r = send get region and get TX power commands");
   Serial.println("  i = send single inventory command");
   Serial.println("  s = send stop multiple inventory command");
   Serial.println("  b = toggle YRM100 UART baud between 115200 and 38400");
@@ -241,7 +258,7 @@ void setup() {
 
   printHelp();
   delay(500);
-  sendCommand("get module info", CMD_GET_MODULE_INFO, sizeof(CMD_GET_MODULE_INFO));
+  sendCommand("get hardware version", CMD_GET_HARDWARE_VERSION, sizeof(CMD_GET_HARDWARE_VERSION));
 }
 
 void loop() {
@@ -261,7 +278,17 @@ void loop() {
     switch (input) {
       case 'g':
       case 'G':
-        sendCommand("get module info", CMD_GET_MODULE_INFO, sizeof(CMD_GET_MODULE_INFO));
+        sendCommand("get hardware version", CMD_GET_HARDWARE_VERSION, sizeof(CMD_GET_HARDWARE_VERSION));
+        delay(100);
+        sendCommand("get software version", CMD_GET_SOFTWARE_VERSION, sizeof(CMD_GET_SOFTWARE_VERSION));
+        delay(100);
+        sendCommand("get manufacturer", CMD_GET_MANUFACTURER, sizeof(CMD_GET_MANUFACTURER));
+        break;
+      case 'r':
+      case 'R':
+        sendCommand("get region", CMD_GET_REGION, sizeof(CMD_GET_REGION));
+        delay(100);
+        sendCommand("get TX power", CMD_GET_TX_POWER, sizeof(CMD_GET_TX_POWER));
         break;
       case 'i':
       case 'I':
@@ -274,7 +301,7 @@ void loop() {
       case 'b':
       case 'B':
         beginYrmSerial(currentYrmBaud == 115200 ? 38400 : 115200);
-        sendCommand("get module info", CMD_GET_MODULE_INFO, sizeof(CMD_GET_MODULE_INFO));
+        sendCommand("get hardware version", CMD_GET_HARDWARE_VERSION, sizeof(CMD_GET_HARDWARE_VERSION));
         break;
       case 'v':
       case 'V':

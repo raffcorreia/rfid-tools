@@ -59,7 +59,7 @@ BB     xx   xx      xx     xx     ...           xx       7E
 
 | Command | Code | Notes |
 |---|---:|---|
-| Get module info | `0x03` | Hardware, software, manufacturer info. |
+| Get module info | `0x03` | Requires 1-byte selector: `0x00` hardware version, `0x01` software version, `0x02` manufacturer. |
 | Single inventory | `0x22` | One inventory operation. |
 | Multiple inventory | `0x27` | Repeated inventory with count. |
 | Stop multiple inventory | `0x28` | Stops active multiple inventory. |
