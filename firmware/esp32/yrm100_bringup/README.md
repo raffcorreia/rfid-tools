@@ -25,10 +25,19 @@ Default sketch pin assumptions:
 
 | Signal | ESP32 GPIO |
 |---|---|
-| ESP32 RX from YRM100 TXD | `GPIO44` |
-| ESP32 TX to YRM100 RXD | `GPIO43` |
+| ESP32 RX from YRM100 TXD | Arduino board `RX` constant, fallback `GPIO44` |
+| ESP32 TX to YRM100 RXD | Arduino board `TX` constant, fallback `GPIO43` |
 
-These are based on common ESP32-S3 SuperMini `RX` / `TX` labels. If there is no response, verify the selected board package pin map and TX/RX wiring.
+These are based on common ESP32-S3 SuperMini `RX` / `TX` labels. `GPIO43` and `GPIO44` are valid ESP32-S3 pins and are commonly used for UART0 on ESP32-S3 boards. If there is no response, verify the selected board package pin map and TX/RX wiring.
+
+UART wiring is crossed:
+
+| Controller Side | Reader Side |
+|---|---|
+| ESP32 `TX` | YRM100 `RXD` / yellow |
+| ESP32 `RX` | YRM100 `TXD` / black |
+
+Do not wire `RX` to `RXD` and `TX` to `TXD` unless you are deliberately testing whether the labels are from the opposite perspective. If testing, swap only the yellow and black UART wires; never move power or ground while powered.
 
 ## Run
 

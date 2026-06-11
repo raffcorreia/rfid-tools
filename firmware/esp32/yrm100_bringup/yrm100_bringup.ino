@@ -17,15 +17,23 @@
 #include <Arduino.h>
 
 // ESP32-S3 SuperMini board-labeled TX/RX pins.
-// Many ESP32-S3 SuperMini boards route TX/RX labels to GPIO43/GPIO44.
-// If the sketch compiles but receives no bytes, verify this against the
-// selected board package pin map and try swapping TX/RX at the wiring level.
+// Prefer the Arduino board package's RX/TX constants when available. Many
+// ESP32-S3 SuperMini boards route the edge-labeled TX/RX pins to GPIO43/GPIO44,
+// but the selected board package should be the first source of truth.
 #ifndef YRM100_UART_RX_PIN
+#ifdef RX
+#define YRM100_UART_RX_PIN RX  // ESP32 receives from YRM100 TXD.
+#else
 #define YRM100_UART_RX_PIN 44  // ESP32 receives from YRM100 TXD.
+#endif
 #endif
 
 #ifndef YRM100_UART_TX_PIN
+#ifdef TX
+#define YRM100_UART_TX_PIN TX  // ESP32 transmits to YRM100 RXD.
+#else
 #define YRM100_UART_TX_PIN 43  // ESP32 transmits to YRM100 RXD.
+#endif
 #endif
 
 #ifndef YRM100_UART_BAUD
