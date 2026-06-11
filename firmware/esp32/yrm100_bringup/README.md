@@ -30,6 +30,8 @@ Default sketch pin assumptions:
 
 These are based on common ESP32-S3 SuperMini `RX` / `TX` labels. `GPIO43` and `GPIO44` are valid ESP32-S3 pins and are commonly used for UART0 on ESP32-S3 boards. If there is no response, verify the selected board package pin map and TX/RX wiring.
 
+The sketch prints the resolved GPIO numbers on boot. Those values are the firmware configuration, not proof that the physical silkscreen pads use those GPIOs.
+
 UART wiring is crossed:
 
 | Controller Side | Reader Side |
@@ -81,6 +83,21 @@ Serial monitor commands:
 | `s` | Send stop multiple inventory |
 | `b` | Toggle YRM100 UART baud between `115200` and `38400`, then send get module info |
 | `h` | Print help |
+
+## TX Activity Checks
+
+The sketch pulses `LED_BUILTIN` after each command send if the selected Arduino board profile defines one. On boards without a usable built-in LED, the Serial Monitor `[TX]` line is still the primary software confirmation that bytes were written to the configured UART.
+
+You can also use an external LED as a rough TX activity indicator, but use a resistor and do not connect an LED directly to the pin.
+
+Suggested temporary check:
+
+```text
+ESP32 TX pin -> 1k resistor -> LED anode
+LED cathode -> GND
+```
+
+UART TX idles high, so the LED may stay on or only flicker briefly during commands. A logic analyzer, oscilloscope, or multimeter frequency/voltage change is a better signal check. Remove the LED after testing if there is any doubt that it is loading the UART line.
 
 ## Success Criteria
 

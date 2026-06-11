@@ -16,32 +16,41 @@
 
 #include <Arduino.h>
 
-// ESP32-S3 SuperMini board-labeled TX/RX pins.
-// Prefer the Arduino board package's RX/TX constants when available. Many
-// ESP32-S3 SuperMini boards route the edge-labeled TX/RX pins to GPIO43/GPIO44,
-// but the selected board package should be the first source of truth.
-#ifndef YRM100_UART_RX_PIN
+// ESP32-S3 SuperMini board-labeled TX/RX pins. Prefer the Arduino board
+// package's RX/TX constants when available. Many ESP32-S3 SuperMini boards
+// route edge-labeled TX/RX to GPIO43/GPIO44.
+#ifndef YRM100_RX_PIN
 #ifdef RX
-#define YRM100_UART_RX_PIN RX  // ESP32 receives from YRM100 TXD.
+#define YRM100_RX_PIN RX
 #else
-#define YRM100_UART_RX_PIN 44  // ESP32 receives from YRM100 TXD.
+#define YRM100_RX_PIN 44
 #endif
 #endif
 
-#ifndef YRM100_UART_TX_PIN
+#ifndef YRM100_TX_PIN
 #ifdef TX
-#define YRM100_UART_TX_PIN TX  // ESP32 transmits to YRM100 RXD.
+#define YRM100_TX_PIN TX
 #else
-#define YRM100_UART_TX_PIN 43  // ESP32 transmits to YRM100 RXD.
+#define YRM100_TX_PIN 43
 #endif
 #endif
 
-#ifndef YRM100_UART_BAUD
-#define YRM100_UART_BAUD 115200
+#ifndef YRM100_DEFAULT_BAUD
+#define YRM100_DEFAULT_BAUD 115200
 #endif
+
+#ifndef LED_BUILTIN
+#define LED_BUILTIN -1
+#endif
+
+static constexpr int kYrmRxPin = YRM100_RX_PIN;  // ESP32 receives from YRM100 TXD.
+static constexpr int kYrmTxPin = YRM100_TX_PIN;  // ESP32 transmits to YRM100 RXD.
+static constexpr int kTxIndicatorPin = LED_BUILTIN;
+static constexpr uint32_t kUsbSerialBaud = 115200;
+static constexpr uint32_t kDefaultYrmBaud = YRM100_DEFAULT_BAUD;
 
 HardwareSerial YrmSerial(1);
-static uint32_t currentYrmBaud = YRM100_UART_BAUD;
+static uint32_t currentYrmBaud = kDefaultYrmBaud;
 
 static const uint8_t CMD_GET_MODULE_INFO[] = {
   0xBB, 0x00, 0x03, 0x00, 0x00, 0x03, 0x7E
@@ -93,6 +102,12 @@ static void sendCommand(const char *label, const uint8_t *command, size_t len) {
 
   YrmSerial.write(command, len);
   YrmSerial.flush();
+
+  if (kTxIndicatorPin >= 0) {
+    digitalWrite(kTxIndicatorPin, HIGH);
+    delay(30);
+    digitalWrite(kTxIndicatorPin, LOW);
+  }
 }
 
 static void resetFrameParser() {
@@ -104,7 +119,7 @@ static void beginYrmSerial(uint32_t baud) {
   currentYrmBaud = baud;
   YrmSerial.end();
   delay(50);
-  YrmSerial.begin(currentYrmBaud, SERIAL_8N1, YRM100_UART_RX_PIN, YRM100_UART_TX_PIN);
+  YrmSerial.begin(currentYrmBaud, SERIAL_8N1, kYrmRxPin, kYrmTxPin);
   resetFrameParser();
 
   Serial.print("[UART] YRM100 baud set to ");
@@ -204,7 +219,12 @@ static void printHelp() {
 }
 
 void setup() {
-  Serial.begin(115200);
+  if (kTxIndicatorPin >= 0) {
+    pinMode(kTxIndicatorPin, OUTPUT);
+    digitalWrite(kTxIndicatorPin, LOW);
+  }
+
+  Serial.begin(kUsbSerialBaud);
   const uint32_t waitStart = millis();
   while (!Serial && millis() - waitStart < 3000) {
     delay(10);
@@ -213,9 +233,15 @@ void setup() {
   Serial.println();
   Serial.println("RFID Tools - YRM100 UART bring-up");
   Serial.print("ESP32 RX pin: GPIO");
-  Serial.println(YRM100_UART_RX_PIN);
+  Serial.println(kYrmRxPin);
   Serial.print("ESP32 TX pin: GPIO");
-  Serial.println(YRM100_UART_TX_PIN);
+  Serial.println(kYrmTxPin);
+  Serial.print("TX indicator pin: ");
+  if (kTxIndicatorPin >= 0) {
+    Serial.println(kTxIndicatorPin);
+  } else {
+    Serial.println("none");
+  }
   beginYrmSerial(currentYrmBaud);
 
   printHelp();
