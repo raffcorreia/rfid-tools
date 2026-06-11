@@ -90,6 +90,7 @@ Serial monitor commands:
 | Key | Action |
 |---|---|
 | `l` | Listen only; send nothing |
+| `x` | Raw byte capture for 5 seconds; send nothing |
 | `g` | Send hardware version, software version, and manufacturer commands |
 | `r` | Send get region and get TX power commands |
 | `i` | Send single inventory |

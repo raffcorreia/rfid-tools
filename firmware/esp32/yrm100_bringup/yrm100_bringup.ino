@@ -57,6 +57,7 @@ static constexpr uint32_t kUsbSerialBaud = 115200;
 static constexpr uint32_t kDefaultYrmBaud = YRM100_DEFAULT_BAUD;
 static constexpr uint32_t kVisualTestBaud = 1200;
 static constexpr uint32_t kStartupListenMs = 5000;
+static constexpr uint32_t kRawCaptureMs = 5000;
 static constexpr size_t kVisualTestBytes = 512;
 
 HardwareSerial YrmSerial(1);
@@ -95,6 +96,8 @@ static size_t frameLen = 0;
 static size_t expectedFrameLen = 0;
 static uint32_t lastRxAtMs = 0;
 static uint32_t statusLedOffAtMs = 0;
+static bool rawCaptureEnabled = false;
+static uint32_t rawCaptureUntilMs = 0;
 
 static void printByteHex(uint8_t value) {
   if (value < 0x10) {
@@ -238,6 +241,12 @@ static void handleYrmByte(uint8_t value) {
   lastRxAtMs = millis();
   blinkRxLed();
 
+  if (rawCaptureEnabled) {
+    printByteHex(value);
+    Serial.print(' ');
+    return;
+  }
+
   if (frameLen == 0) {
     if (value != 0xBB) {
       Serial.print("[RX stray] ");
@@ -278,6 +287,7 @@ static void printHelp() {
   Serial.println();
   Serial.println("YRM100 UART bring-up commands:");
   Serial.println("  l = listen only; send nothing");
+  Serial.println("  x = raw byte capture for 5 seconds; send nothing");
   Serial.println("  g = send hardware/software/manufacturer version commands");
   Serial.println("  r = send get region and get TX power commands");
   Serial.println("  i = send single inventory command");
@@ -331,6 +341,12 @@ void setup() {
 void loop() {
   updateStatusLed();
 
+  if (rawCaptureEnabled && static_cast<int32_t>(millis() - rawCaptureUntilMs) >= 0) {
+    rawCaptureEnabled = false;
+    Serial.println();
+    Serial.println("[RAW] capture ended");
+  }
+
   while (YrmSerial.available() > 0) {
     handleYrmByte(static_cast<uint8_t>(YrmSerial.read()));
   }
@@ -348,6 +364,14 @@ void loop() {
       case 'l':
       case 'L':
         Serial.println("[LISTEN] passive mode; no command sent");
+        break;
+      case 'x':
+      case 'X':
+        resetFrameParser();
+        rawCaptureEnabled = true;
+        rawCaptureUntilMs = millis() + kRawCaptureMs;
+        Serial.print("[RAW] capture started, ms=");
+        Serial.println(kRawCaptureMs);
         break;
       case 'g':
       case 'G':
