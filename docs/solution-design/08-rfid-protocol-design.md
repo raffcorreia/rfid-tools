@@ -13,6 +13,24 @@ The YRM100 protocol implementation should be based on:
 
 Vendor demo binaries and libraries are not runtime dependencies.
 
+## Driver Module
+
+The reusable protocol implementation lives in `firmware/esp32/yrm100_driver/`.
+
+The driver is plain C++17 and currently contains:
+
+- frame builder
+- stream parser
+- command builders
+- inventory tag decoder
+- module info, region, TX power, command-status, and error decoders
+
+Host-side tests live in `tools/protocol/tests/` and are run with:
+
+```sh
+tools/protocol/scripts/run-yrm100-driver-tests.sh
+```
+
 ## Frame Format
 
 ```text

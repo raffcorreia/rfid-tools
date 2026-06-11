@@ -1,8 +1,8 @@
 # Phase Status - RFID Tools
 
-**Current Phase**: PHASE-002 - YRM100 UART Protocol Driver
-**Current Status**: In Progress
-**Previous Phase**: PHASE-001 - Module Wiring and Hardware Bring-Up
+**Current Phase**: PHASE-003 - ESP32 BLE RFID Service
+**Current Status**: PHASE-002 Complete
+**Previous Phase**: PHASE-002 - YRM100 UART Protocol Driver
 **Last Updated**: 2026-06-11
 
 ---
@@ -28,13 +28,13 @@ The plan should stay mostly stable. This status file should change as work progr
 
 | Item | Status | Evidence |
 |---|---|---|
-| Define driver module location and structure | Open | Needs implementation decision |
-| Extract frame builder from bring-up sketch | Open | Bring-up sketch has working frame construction |
-| Extract stream parser from bring-up sketch | Open | Bring-up sketch has working frame parsing |
-| Add typed inventory/tag parsing | Open | Hardware logs confirm RSSI, PC, EPC, and CRC layout |
-| Add command builders for core YRM100 operations | Open | Commands proven in bring-up sketch and SDK audit |
-| Add protocol test vectors | Open | Need fixtures for valid, split, multi-frame, and bad-checksum cases |
-| Add host-runnable parser/builder tests | Open | Tests should run without live RFID hardware |
+| Define driver module location and structure | Done | `firmware/esp32/yrm100_driver/` contains plain C++17 driver code |
+| Extract frame builder from bring-up sketch | Done | `Yrm100Driver` builds `0xBB ... 0x7E` frames and command frames |
+| Extract stream parser from bring-up sketch | Done | `FrameParser` handles stray bytes, split frames, multiple frames, checksum, and end marker validation |
+| Add typed inventory/tag parsing | Done | `decodeInventoryTag` emits RSSI, PC, EPC, and tag CRC |
+| Add command builders for core YRM100 operations | Done | Module info, inventory, read/write memory, select, region, and TX power builders implemented |
+| Add protocol test vectors | Done | `tools/protocol/test-vectors/yrm100-frames.md` records confirmed command/response/malformed examples |
+| Add host-runnable parser/builder tests | Done | `tools/protocol/scripts/run-yrm100-driver-tests.sh` passes without live hardware |
 
 ## Phase History
 
@@ -42,7 +42,7 @@ The plan should stay mostly stable. This status file should change as work progr
 |---|---|---|---|---|
 | PHASE-000 | Complete | 2026-06-10 | 2026-06-10 | Repository scaffolding and ownership docs created. |
 | PHASE-001 | Complete | 2026-06-10 | 2026-06-11 | ESP32-S3 SuperMini board selected, first prototype wiring documented, valid YRM100 UART responses captured, and tag inventory/read/write validation completed. |
-| PHASE-002 | In Progress | 2026-06-11 | - | Started after successful YRM100 hardware bring-up and EPC clone verification. |
+| PHASE-002 | Complete | 2026-06-11 | 2026-06-11 | Reusable YRM100 C++ driver, protocol fixtures, and host-runnable tests created. |
 
 ## Decisions
 
@@ -60,6 +60,7 @@ The plan should stay mostly stable. This status file should change as work progr
 | 2026-06-11 | PHASE-001 | Confirm YRM100 UART communication at `115200` baud. | The module returned valid checksum-verified frames for hardware, software, and manufacturer info. |
 | 2026-06-11 | PHASE-001 | Complete module bring-up after successful inventory and EPC write verification. | Single inventory, continuous inventory, and EPC clone/write flow all worked with the YRM100 and H9 tags. |
 | 2026-06-11 | PHASE-002 | Start protocol driver phase from the proven bring-up sketch. | The bring-up sketch contains validated command bytes, frame parsing, inventory decoding, power commands, and write/clone sequencing that should be formalized into a driver. |
+| 2026-06-11 | PHASE-002 | Keep YRM100 driver plain C++17 with host tests. | The parser and frame builder need to be tested without live RFID hardware or Arduino IDE. |
 
 ## Open Follow-Ups
 
@@ -74,7 +75,7 @@ The plan should stay mostly stable. This status file should change as work progr
 | FU-001-06 | PHASE-001 | Capture `r` output for region and TX power. | Done |
 | FU-001-07 | PHASE-001 | Capture first successful single inventory response from an H9 tag. | Done |
 | FU-001-08 | PHASE-001 | Investigate ESP32 reset when YRM100 single inventory enables RF. | Done |
-| FU-002-01 | PHASE-002 | Decide firmware driver layout and test harness location. | Open |
-| FU-002-02 | PHASE-002 | Convert working frame builder/parser code into reusable driver code. | Open |
-| FU-002-03 | PHASE-002 | Capture protocol fixtures from confirmed hardware logs. | Open |
-| FU-002-04 | PHASE-002 | Add host-runnable parser and frame-builder tests. | Open |
+| FU-002-01 | PHASE-002 | Decide firmware driver layout and test harness location. | Done |
+| FU-002-02 | PHASE-002 | Convert working frame builder/parser code into reusable driver code. | Done |
+| FU-002-03 | PHASE-002 | Capture protocol fixtures from confirmed hardware logs. | Done |
+| FU-002-04 | PHASE-002 | Add host-runnable parser and frame-builder tests. | Done |

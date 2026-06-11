@@ -20,6 +20,7 @@ Icon?
 
 # Logs and diagnostics
 logs/
+.tmp/
 *.log
 npm-debug.log*
 yarn-debug.log*
