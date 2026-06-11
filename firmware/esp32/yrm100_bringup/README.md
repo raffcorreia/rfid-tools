@@ -38,6 +38,23 @@ These are based on common ESP32-S3 SuperMini `RX` / `TX` labels. If there is no 
 4. Upload the sketch.
 5. Open Serial Monitor at `115200` baud.
 
+Recommended ESP32-S3 Arduino IDE settings:
+
+| Setting | Value |
+|---|---|
+| USB CDC On Boot | `Enabled` |
+| Upload Speed | `115200` while troubleshooting |
+| Serial Monitor baud | `115200` |
+
+If Serial Monitor is blank after upload:
+
+- Close and reopen Serial Monitor after upload.
+- Reselect the current ESP32 port under `Tools > Port`.
+- Press `RESET` once after Serial Monitor is open.
+- Confirm USB CDC on boot is enabled, then re-upload.
+- Type `h` in Serial Monitor and press send.
+- Use the USB-C connector on the ESP32 board, not an external UART adapter, unless the board profile is configured for UART serial.
+
 On boot, the sketch sends:
 
 ```text

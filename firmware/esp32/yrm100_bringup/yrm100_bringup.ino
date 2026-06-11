@@ -50,6 +50,7 @@ static uint8_t frame[256];
 static size_t frameLen = 0;
 static size_t expectedFrameLen = 0;
 static uint32_t lastRxAtMs = 0;
+static uint32_t lastHeartbeatAtMs = 0;
 
 static void printByteHex(uint8_t value) {
   if (value < 0x10) {
@@ -206,6 +207,11 @@ void setup() {
 }
 
 void loop() {
+  if (millis() - lastHeartbeatAtMs > 2000) {
+    lastHeartbeatAtMs = millis();
+    Serial.println("[USB] YRM100 bring-up sketch running. Type h for help.");
+  }
+
   while (YrmSerial.available() > 0) {
     handleYrmByte(static_cast<uint8_t>(YrmSerial.read()));
   }
