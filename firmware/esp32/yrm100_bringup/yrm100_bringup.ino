@@ -39,15 +39,12 @@
 #define YRM100_DEFAULT_BAUD 115200
 #endif
 
-#ifndef LED_BUILTIN
-#define LED_BUILTIN -1
-#endif
-
 static constexpr int kYrmRxPin = YRM100_RX_PIN;  // ESP32 receives from YRM100 TXD.
 static constexpr int kYrmTxPin = YRM100_TX_PIN;  // ESP32 transmits to YRM100 RXD.
-static constexpr int kTxIndicatorPin = LED_BUILTIN;
 static constexpr uint32_t kUsbSerialBaud = 115200;
 static constexpr uint32_t kDefaultYrmBaud = YRM100_DEFAULT_BAUD;
+static constexpr uint32_t kVisualTestBaud = 1200;
+static constexpr size_t kVisualTestBytes = 512;
 
 HardwareSerial YrmSerial(1);
 static uint32_t currentYrmBaud = kDefaultYrmBaud;
@@ -102,12 +99,20 @@ static void sendCommand(const char *label, const uint8_t *command, size_t len) {
 
   YrmSerial.write(command, len);
   YrmSerial.flush();
+}
 
-  if (kTxIndicatorPin >= 0) {
-    digitalWrite(kTxIndicatorPin, HIGH);
-    delay(30);
-    digitalWrite(kTxIndicatorPin, LOW);
+static void sendRepeatedByte(const char *label, uint8_t value, size_t count) {
+  Serial.print("[TX] ");
+  Serial.print(label);
+  Serial.print("  byte=0x");
+  printByteHex(value);
+  Serial.print(" count=");
+  Serial.println(count);
+
+  for (size_t i = 0; i < count; i++) {
+    YrmSerial.write(value);
   }
+  YrmSerial.flush();
 }
 
 static void resetFrameParser() {
@@ -214,16 +219,12 @@ static void printHelp() {
   Serial.println("  i = send single inventory command");
   Serial.println("  s = send stop multiple inventory command");
   Serial.println("  b = toggle YRM100 UART baud between 115200 and 38400");
+  Serial.println("  v = visual TX test: set 1200 baud and send long 0x55 pattern");
   Serial.println("  h = print this help");
   Serial.println();
 }
 
 void setup() {
-  if (kTxIndicatorPin >= 0) {
-    pinMode(kTxIndicatorPin, OUTPUT);
-    digitalWrite(kTxIndicatorPin, LOW);
-  }
-
   Serial.begin(kUsbSerialBaud);
   const uint32_t waitStart = millis();
   while (!Serial && millis() - waitStart < 3000) {
@@ -236,12 +237,6 @@ void setup() {
   Serial.println(kYrmRxPin);
   Serial.print("ESP32 TX pin: GPIO");
   Serial.println(kYrmTxPin);
-  Serial.print("TX indicator pin: ");
-  if (kTxIndicatorPin >= 0) {
-    Serial.println(kTxIndicatorPin);
-  } else {
-    Serial.println("none");
-  }
   beginYrmSerial(currentYrmBaud);
 
   printHelp();
@@ -280,6 +275,11 @@ void loop() {
       case 'B':
         beginYrmSerial(currentYrmBaud == 115200 ? 38400 : 115200);
         sendCommand("get module info", CMD_GET_MODULE_INFO, sizeof(CMD_GET_MODULE_INFO));
+        break;
+      case 'v':
+      case 'V':
+        beginYrmSerial(kVisualTestBaud);
+        sendRepeatedByte("visual TX test pattern", 0x55, kVisualTestBytes);
         break;
       case 'h':
       case 'H':
