@@ -10,6 +10,7 @@
 | RF04 | Start inventory | The app shall allow the user to start an RFID inventory operation. |
 | RF05 | Stop inventory | The app shall allow the user to stop an active inventory operation. |
 | RF06 | Display tag reads | The app shall display tag EPC values received from the ESP32. |
+| RF06a | Data format toggle | The app shall allow the user to switch tag data display between hex and text when a readable text view is available. |
 | RF07 | Display RSSI | The app shall display RFID RSSI when the reader protocol provides it. |
 | RF08 | Tag deduplication | The app shall avoid presenting duplicate tag reads in a confusing way during a scan session. |
 | RF09 | Command log | The app shall provide a development/debug view of commands, responses, and errors. |

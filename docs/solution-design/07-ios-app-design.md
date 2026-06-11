@@ -65,6 +65,7 @@ Local saved read fields:
 - The app must show which saved read or manual value is the write source.
 - The app must not claim a clone is complete without firmware success and optional verification.
 - Diagnostics should be available but not dominate normal scanning.
+- Tag detail and diagnostics views should include a hex/text toggle for payload display, with hex as the default for EPC and protocol fields.
 
 ## Reader Power
 
