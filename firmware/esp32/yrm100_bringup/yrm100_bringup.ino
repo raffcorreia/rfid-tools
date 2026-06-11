@@ -127,6 +127,13 @@ static uint8_t yrmChecksum(const uint8_t *data, size_t len) {
   return static_cast<uint8_t>(sum & 0xFF);
 }
 
+static void printAsciiPayload(const uint8_t *data, size_t len) {
+  for (size_t i = 0; i < len; i++) {
+    const uint8_t value = data[i];
+    Serial.print(value >= 0x20 && value <= 0x7E ? static_cast<char>(value) : '.');
+  }
+}
+
 static void setStatusLed(uint8_t red, uint8_t green, uint8_t blue) {
   if (kStatusLedPin < 0 || kStatusLedBrightness == 0) {
     return;
@@ -255,6 +262,14 @@ static void printFrameSummary(const uint8_t *data, size_t len) {
     Serial.print("[RX PAYLOAD] ");
     printBytes(data + 5, payloadLen);
     Serial.println();
+
+    if (type == 0x01 && command == 0x03 && payloadLen > 1) {
+      Serial.print("[MODULE INFO] selector=0x");
+      printByteHex(data[5]);
+      Serial.print(" text=\"");
+      printAsciiPayload(data + 6, payloadLen - 1);
+      Serial.println("\"");
+    }
   }
 }
 

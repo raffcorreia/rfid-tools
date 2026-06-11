@@ -164,6 +164,15 @@ If the reader is unstable, use an external regulated 5V supply for YRM100 VCC wi
 
 External working-reference note, 2026-06-11: `haffnerriley/Simultaneous-UHF-RFID-FlipperZero` documents YRM100 support. Its source uses the same YRM100 diagnostic command bytes and default `115200` baud as this project, so the current bring-up failure is unlikely to be caused by the hardware-version command frame or default baud.
 
+Confirmed UART identity, 2026-06-11:
+
+| Field | Captured Value |
+|---|---|
+| Baud | `115200` |
+| Hardware info | `M100 26dBm V1.0` |
+| Software info | `V2.3.5` |
+| Manufacturer | `MagicRf` |
+
 Validation criteria:
 
 - Stable power path for the RFID module.
