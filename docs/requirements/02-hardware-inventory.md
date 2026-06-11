@@ -51,6 +51,30 @@ Vendor material shows a 5-pin WAFER connector.
 
 The TX/RX direction must be confirmed from the module perspective before wiring.
 
+## Alternate YRM100 J2 Pads
+
+The physical YRM100 board also exposes an unpopulated 5-pad `J2` footprint near the left edge of the board. User-provided photos show the populated `J1` cable colors as:
+
+| J1 Wire Color | Signal |
+|---|---|
+| Blue | `GND` |
+| Green | `EN` |
+| Yellow | `RXD` |
+| Black | `TXD` |
+| Red | `VCC` / `5V` |
+
+From the J1 color order and the board layout, the probable `J2` mapping when viewed from the photographed side, with the square pad at the top, is:
+
+| J2 Pad, Top to Bottom | Probable Signal | Confidence |
+|---|---|---|
+| 1, square top pad | `VCC` / `5V` | Probable; verify continuity to red J1 wire |
+| 2 | `TXD` | Probable; verify continuity to black J1 wire |
+| 3 | `RXD` | Probable; verify continuity to yellow J1 wire |
+| 4 | `EN` | Probable; verify continuity to green J1 wire |
+| 5, bottom pad | `GND` | Probable; verify continuity to blue J1 wire |
+
+Do not use the `J2` pads for power until continuity is confirmed with a meter. The populated `J1` cable remains the preferred first-bring-up connector.
+
 ## Module Wiring Plan
 
 The project should document the module-to-module wiring only.

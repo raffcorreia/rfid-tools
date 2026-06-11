@@ -30,3 +30,5 @@ Use the board-labeled external pins from the selected ESP32-S3 SuperMini:
 | 5 | `VCC` | `5V` | USB-powered rail first; external regulated 5V fallback if unstable |
 
 Do not power the YRM100 from a GPIO. If there is no UART response, verify TX/RX direction before changing firmware assumptions.
+
+The YRM100 board also has an unpopulated `J2` footprint. Probable top-to-bottom order from the photographed side, square pad at top: `VCC/5V`, `TXD`, `RXD`, `EN`, `GND`. Treat this as unverified until continuity-tested against the populated `J1` cable wires.

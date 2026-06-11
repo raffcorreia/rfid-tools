@@ -36,6 +36,20 @@ Physical layout beyond module-to-module wiring is intentionally not tracked.
 
 TX/RX direction must be confirmed from the module perspective during bring-up.
 
+## YRM100 Alternate J2 Pads
+
+The board appears to expose the same five UART/power signals on an unpopulated `J2` footprint. Based on the populated `J1` cable colors and board photos, the probable `J2` order when viewed from the component side with the square pad at the top is:
+
+| J2 Pad, Top to Bottom | Probable Signal |
+|---|---|
+| 1, square top pad | `VCC` / `5V` |
+| 2 | `TXD` |
+| 3 | `RXD` |
+| 4 | `EN` |
+| 5, bottom pad | `GND` |
+
+This mapping must be verified with continuity testing before using `J2`. The first prototype should still use the populated `J1` cable.
+
 ## ESP32-S3 SuperMini External Pins
 
 The selected ESP32-S3 SuperMini board has been documented from user-provided photos. With the USB-C connector at the top, the external edge pins expose:
