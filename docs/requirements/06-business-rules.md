@@ -72,7 +72,7 @@ The iPhone app should send high-level commands to the ESP32, such as start inven
 - EN pin behavior must be documented before relying on sleep or wake workflows.
 - Common ground between ESP32 and YRM100 is required.
 - Power wiring must be checked before enabling RF inventory.
-- The final wiring reference must record both logical signal names and physical wire colors/connectors when known.
+- The final wiring reference must record logical signal names, connector orientation, and physical pin references. Wire colors are not authoritative.
 
 ## Documentation Rules
 

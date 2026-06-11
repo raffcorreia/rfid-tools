@@ -182,7 +182,7 @@ The ESP32 and YRM100 are wired with a documented module-to-module mapping, power
   - EN handling: tied high or GPIO-controlled.
   - Power source for YRM100 VCC.
   - Common ground confirmation.
-  - Wire colors and connector orientation where known.
+  - Connector orientation and module pin 1 reference.
 - Hardware bring-up notes.
 - First valid UART response capture from YRM100.
 

@@ -15,11 +15,11 @@ Use the populated YRM100 `J1` cable, not the unconfirmed `J2` middle pads.
 
 | YRM100 | ESP32-S3 SuperMini |
 |---|---|
-| `GND` / blue | `GND` |
-| `EN` / green | `3V3` |
-| `RXD` / yellow | board-labeled `TX` |
-| `TXD` / black | board-labeled `RX` |
-| `VCC` / red | `5V` USB rail, or external regulated 5V with common ground |
+| `GND` | `GND` |
+| `EN` | `3V3` |
+| `RXD` | board-labeled `TX` |
+| `TXD` | board-labeled `RX` |
+| `VCC` | `5V` USB rail, or external regulated 5V with common ground |
 
 Default sketch pin assumptions:
 
@@ -45,10 +45,10 @@ UART wiring is crossed:
 
 | Controller Side | Reader Side |
 |---|---|
-| ESP32 `TX` | YRM100 `RXD` / yellow |
-| ESP32 `RX` | YRM100 `TXD` / black |
+| ESP32 `TX` | YRM100 `RXD` |
+| ESP32 `RX` | YRM100 `TXD` |
 
-Do not wire `RX` to `RXD` and `TX` to `TXD` unless you are deliberately testing whether the labels are from the opposite perspective. If testing, swap only the yellow and black UART wires; never move power or ground while powered.
+Do not wire `RX` to `RXD` and `TX` to `TXD` unless you are deliberately testing whether the labels are from the opposite perspective. If testing, swap only the `RXD` and `TXD` signal wires; never move power or ground while powered.
 
 ## Run
 

@@ -53,25 +53,17 @@ The TX/RX direction must be confirmed from the module perspective before wiring.
 
 ## Alternate YRM100 J2 Pads
 
-The physical YRM100 board also exposes an unpopulated 5-pad `J2` footprint near the left edge of the board. User-provided photos show the populated `J1` cable colors as:
-
-| J1 Wire Color | Signal |
-|---|---|
-| Blue | `GND` |
-| Green | `EN` |
-| Yellow | `RXD` |
-| Black | `TXD` |
-| Red | `VCC` / `5V` |
+The physical YRM100 board also exposes an unpopulated 5-pad `J2` footprint near the left edge of the board. The project does not treat wire colors as authoritative because prototype wiring may use a different color pattern. Use connector orientation, pin numbers, and signal names only.
 
 Multimeter continuity testing currently confirms only the power rails between `J2` and `J1`:
 
 | J2 Pad, Top to Bottom | Confirmed / Suspected Signal | Status |
 |---|---|---|
-| 1, square top pad | `VCC` / `5V` | Confirmed continuity to red J1 wire |
+| 1, square top pad | `VCC` / `5V` | Confirmed continuity to `J1` `VCC` / YRM100 pin 5 |
 | 2 | Unknown | No direct continuity to J1 signal confirmed |
 | 3 | Unknown | No direct continuity to J1 signal confirmed |
 | 4 | Unknown | No direct continuity to J1 signal confirmed |
-| 5, bottom pad | `GND` | Confirmed continuity to blue J1 wire |
+| 5, bottom pad | `GND` | Confirmed continuity to `J1` `GND` / YRM100 pin 1 |
 
 Do not use the middle `J2` pads for UART or `EN` until their function is confirmed. The populated `J1` cable remains the preferred first-bring-up connector.
 
@@ -90,17 +82,17 @@ The wiring reference should include:
 - Power source and voltage rail used for YRM100 VCC.
 - Common ground between ESP32 and YRM100.
 - Confirmation that UART logic is 3.3V TTL.
-- Notes about wire colors, connector orientation, and module pin 1 orientation.
+- Notes about connector orientation and module pin 1 orientation.
 - Bring-up checklist for power, EN, UART, and first inventory command.
 
-Initial vendor wiring note from SDK:
+Initial vendor wiring note from SDK, rewritten with signal names only:
 
 | ESP32/STM32 Side | YRM-RFID Side |
 |---|---|
-| `3.3V` | `5V` / red wire plus `EN` / green wire |
-| `GND` | `GND` / blue wire |
-| `B10` | `RXD` / yellow wire |
-| `B11` | `TXD` / black wire |
+| `3.3V` | `VCC` plus `EN` |
+| `GND` | `GND` |
+| controller UART `TX` | `RXD` |
+| controller UART `RX` | `TXD` |
 
 This note is useful but not final. The actual ESP32 GPIO names and TX/RX direction must be confirmed with the selected ESP32 board and module cable.
 
