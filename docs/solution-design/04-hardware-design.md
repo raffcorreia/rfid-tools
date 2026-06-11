@@ -42,6 +42,8 @@ The board has an unpopulated `J2` footprint near the left edge. Initial continui
 
 The three middle `J2` pads are not confirmed as `TXD`, `RXD`, or `EN`. They may route through components, expose different internal signals, or serve a manufacturing/test purpose. Do not use them for first bring-up.
 
+External research on 2026-06-11 did not find a reliable public pinout for this `J2` footprint. Related public material only confirms the normal 5-wire UART/power interface.
+
 The first prototype should use the populated `J1` cable.
 
 ## ESP32-S3 SuperMini External Pins

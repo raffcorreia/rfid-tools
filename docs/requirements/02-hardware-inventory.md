@@ -75,6 +75,8 @@ Multimeter continuity testing currently confirms only the power rails between `J
 
 Do not use the middle `J2` pads for UART or `EN` until their function is confirmed. The populated `J1` cable remains the preferred first-bring-up connector.
 
+External research note, 2026-06-11: public references found for similar YRM100/R200/JRD-100-style modules describe the normal 5-wire UART/power interface, but no trustworthy public source was found that identifies the green YRM100/YRM1001 board's unpopulated `J2` pads as a UART/EN breakout. Treat `J2` as power/ground only until the middle pads are identified by schematic, manufacturer confirmation, or electrical testing beyond continuity-to-J1.
+
 ## Module Wiring Plan
 
 The project should document the module-to-module wiring only.
