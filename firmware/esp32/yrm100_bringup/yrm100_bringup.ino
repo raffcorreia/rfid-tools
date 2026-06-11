@@ -113,6 +113,8 @@ static constexpr uint8_t kWriteAccessPassword[4] = {0x00, 0x00, 0x00, 0x00};
 static constexpr uint8_t kWriteMemBankEpc = 0x01;
 static constexpr uint16_t kWriteEpcStartWord = 0x0002;
 static constexpr size_t kMaxWritePayloadBytes = 64;
+static constexpr uint8_t kSelectModeApplyBeforeTagOps = 0x02;
+static constexpr uint8_t kSelectModeDefault = 0x01;
 
 static uint8_t frame[256];
 static size_t frameLen = 0;
@@ -256,6 +258,10 @@ static bool sendDynamicCommand(const char *label, uint8_t command, const uint8_t
   return true;
 }
 
+static bool setSelectMode(uint8_t mode) {
+  return sendDynamicCommand("set select mode", 0x12, &mode, 1);
+}
+
 static bool selectTagByEpc(const uint8_t *epc, size_t epcLen) {
   if (epc == nullptr || epcLen == 0 || epcLen > 64) {
     Serial.println("[WRITE] invalid EPC selection source");
@@ -294,7 +300,12 @@ static bool writeEpcBytesToLastSeenTag(const uint8_t *newEpc, size_t newEpcLen) 
     return false;
   }
 
+  if (!setSelectMode(kSelectModeApplyBeforeTagOps)) {
+    return false;
+  }
+
   if (!selectTagByEpc(lastInventoryEpc, lastInventoryEpcLen)) {
+    setSelectMode(kSelectModeDefault);
     return false;
   }
 
@@ -315,7 +326,9 @@ static bool writeEpcBytesToLastSeenTag(const uint8_t *newEpc, size_t newEpcLen) 
   printBytes(newEpc, newEpcLen);
   Serial.println();
 
-  return sendDynamicCommand("write EPC", 0x49, payload, 9 + newEpcLen);
+  const bool writeOk = sendDynamicCommand("write EPC", 0x49, payload, 9 + newEpcLen);
+  setSelectMode(kSelectModeDefault);
+  return writeOk;
 }
 
 static bool saveCloneSourceFromLastInventory() {
