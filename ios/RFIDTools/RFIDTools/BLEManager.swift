@@ -240,9 +240,25 @@ final class BLEManager: NSObject, ObservableObject {
             return
         }
 
-        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let event = object["evt"] as? String else {
+        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            handleEventObject(object)
+            return
+        }
+
+        let objects = extractJSONObjects(from: text)
+        guard !objects.isEmpty else {
             log(.firmware, text)
+            return
+        }
+
+        for object in objects {
+            handleEventObject(object)
+        }
+    }
+
+    private func handleEventObject(_ object: [String: Any]) {
+        guard let event = object["evt"] as? String else {
+            log(.firmware, "\(object)")
             return
         }
 
@@ -269,6 +285,50 @@ final class BLEManager: NSObject, ObservableObject {
             lastWriteMessage = message
             log(.error, message)
         }
+    }
+
+    private func extractJSONObjects(from text: String) -> [[String: Any]] {
+        var objects: [[String: Any]] = []
+        var depth = 0
+        var startIndex: String.Index?
+        var isInString = false
+        var isEscaped = false
+
+        for index in text.indices {
+            let character = text[index]
+
+            if isInString {
+                if isEscaped {
+                    isEscaped = false
+                } else if character == "\\" {
+                    isEscaped = true
+                } else if character == "\"" {
+                    isInString = false
+                }
+                continue
+            }
+
+            if character == "\"" {
+                isInString = true
+            } else if character == "{" {
+                if depth == 0 {
+                    startIndex = index
+                }
+                depth += 1
+            } else if character == "}" {
+                depth -= 1
+                if depth == 0, let objectStartIndex = startIndex {
+                    let jsonText = String(text[objectStartIndex...index])
+                    if let data = jsonText.data(using: .utf8),
+                       let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        objects.append(object)
+                    }
+                    startIndex = nil
+                }
+            }
+        }
+
+        return objects
     }
 
     private func handleCommandResult(_ object: [String: Any]) {

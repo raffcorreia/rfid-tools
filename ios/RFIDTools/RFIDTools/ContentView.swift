@@ -110,19 +110,15 @@ struct ContentView: View {
 
             detectedTagsView
 
-            HStack(spacing: 10) {
-                Spacer()
-
-                Button {
-                    bleManager.startInventory()
-                } label: {
-                    Label("Read", systemImage: "dot.radiowaves.left.and.right")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+            Button {
+                bleManager.startInventory()
+            } label: {
+                Label("Read", systemImage: "dot.radiowaves.left.and.right")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
         }
@@ -131,41 +127,28 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detectedTagsView: some View {
-        if bleManager.tags.isEmpty {
-            Text("No tag read yet")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            if bleManager.tags.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("No tag read yet")
+                        .font(.system(.subheadline, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    HStack(spacing: 12) {
+                        Text("Seen 0")
+                        Text("RSSI --")
+                        Text("--:--")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            } else {
                 ForEach(bleManager.tags.prefix(8)) { tag in
                     VStack(alignment: .leading, spacing: 5) {
-                        HStack(alignment: .top, spacing: 8) {
-                            Text(tag.displayValue(format: tagDisplayFormat))
-                                .font(.system(.subheadline, design: tagDisplayFormat == .hex ? .monospaced : .default))
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.8)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                        tagValueRow(tag)
 
-                            Button {
-                                copyTag(tag)
-                            } label: {
-                                Image(systemName: copiedTagID == tag.id ? "checkmark" : "doc.on.doc")
-                                    .font(.caption.weight(.semibold))
-                                    .frame(width: 30, height: 30)
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityLabel("Copy tag")
-                        }
-
-                        HStack(spacing: 12) {
-                            Text("Seen \(tag.seenCount)")
-                            if let rssi = tag.rssi {
-                                Text("RSSI \(rssi)")
-                            }
-                            Text(tag.updatedAt, style: .time)
-                        }
+                        tagMetadataRow(tag)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
@@ -175,10 +158,41 @@ struct ContentView: View {
                     }
                 }
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 78, alignment: .topLeading)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func tagValueRow(_ tag: TagRead) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(tag.displayValue(format: tagDisplayFormat))
+                .font(.system(.subheadline, design: tagDisplayFormat == .hex ? .monospaced : .default))
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                copyTag(tag)
+            } label: {
+                Image(systemName: copiedTagID == tag.id ? "checkmark" : "doc.on.doc")
+                    .font(.caption.weight(.semibold))
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Copy tag")
+        }
+    }
+
+    private func tagMetadataRow(_ tag: TagRead) -> some View {
+        HStack(spacing: 12) {
+            Text("Seen \(tag.seenCount)")
+            if let rssi = tag.rssi {
+                Text("RSSI \(rssi)")
+            }
+            Text(tag.updatedAt, style: .time)
         }
     }
 
