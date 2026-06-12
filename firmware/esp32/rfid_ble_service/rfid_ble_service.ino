@@ -38,7 +38,7 @@
 #endif
 
 static constexpr const char *kDeviceName = "RFID Tools ESP32";
-static constexpr const char *kFirmwareVersion = "0.1.2";
+static constexpr const char *kFirmwareVersion = "0.1.3";
 static constexpr const char *kServiceUuid = "63802432-69FC-406D-A538-FE33CEF32AEF";
 static constexpr const char *kCommandUuid = "DE0D7201-CC2B-46D9-8F92-564A209C37EF";
 static constexpr const char *kEventsUuid = "456F5CDA-632A-4541-A2A5-6FAEC234075E";
@@ -48,6 +48,7 @@ static constexpr int kYrmTxPin = YRM100_TX_PIN;
 static constexpr uint32_t kYrmBaud = YRM100_DEFAULT_BAUD;
 static constexpr uint32_t kCommandTimeoutMs = 1500;
 static constexpr uint32_t kInventoryCooldownMs = 150;
+static constexpr uint32_t kLateDuplicateWindowMs = 750;
 static constexpr int kMinPowerDbm = 0;
 static constexpr int kMaxPowerDbm = 26;
 static constexpr uint8_t kRegionUs = 0x02;
@@ -66,7 +67,9 @@ static bool readerReady = false;
 static int currentPowerCentiDbm = -1;
 static int currentRegion = -1;
 static uint32_t lastInventoryEndMs = 0;
+static uint32_t lastNotifiedInventoryMs = 0;
 static std::vector<uint8_t> lastInventoryEpc;
+static std::vector<uint8_t> lastNotifiedInventoryEpc;
 
 struct QueuedBleCommand {
   bool occupied = false;
@@ -559,6 +562,12 @@ static bool isWriteAction(PendingAction action) {
          action == PendingAction::WriteClearSelectMode;
 }
 
+static bool isRecentDuplicateInventory(const std::vector<uint8_t> &epc) {
+  return !lastNotifiedInventoryEpc.empty() &&
+         epc == lastNotifiedInventoryEpc &&
+         millis() - lastNotifiedInventoryMs < kLateDuplicateWindowMs;
+}
+
 static bool sendYrmCommand(int id, PendingAction action, uint8_t yrmCommand, const std::vector<uint8_t> &frame) {
   if (hasPending()) {
     notifyError(id, "busy", "firmware", "Another reader command is in progress");
@@ -667,12 +676,18 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
   rfid::yrm100::InventoryTag tag;
   if (rfid::yrm100::decodeInventoryTag(frame, tag)) {
     if (!scanActive && pending.action != PendingAction::StartInventory) {
-      Serial.print("[YRM RX] ignored late inventory tag ");
+      if (isRecentDuplicateInventory(tag.epc)) {
+        Serial.print("[YRM RX] ignored duplicate inventory tag ");
+        Serial.println(bytesToHex(tag.epc));
+        return;
+      }
+      Serial.print("[YRM RX] unsolicited inventory tag ");
       Serial.println(bytesToHex(tag.epc));
-      return;
     }
 
     lastInventoryEpc = tag.epc;
+    lastNotifiedInventoryEpc = tag.epc;
+    lastNotifiedInventoryMs = millis();
     notifyEvent(String("{\"v\":1,\"id\":null,\"evt\":\"tagSeen\",\"epc\":\"") +
                 bytesToHex(tag.epc) +
                 "\",\"pc\":\"" + String(tag.pc, HEX) +
