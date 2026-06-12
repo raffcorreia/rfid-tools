@@ -43,6 +43,7 @@ The plan should stay mostly stable. This status file should change as work progr
 | PHASE-000 | Complete | 2026-06-10 | 2026-06-10 | Repository scaffolding and ownership docs created. |
 | PHASE-001 | Complete | 2026-06-10 | 2026-06-11 | ESP32-S3 SuperMini board selected, first prototype wiring documented, valid YRM100 UART responses captured, and tag inventory/read/write validation completed. |
 | PHASE-002 | Complete | 2026-06-11 | 2026-06-11 | Reusable YRM100 C++ driver, protocol fixtures, and host-runnable tests created. |
+| PHASE-003 | Complete | 2026-06-11 | 2026-06-11 | ESP32 BLE service implemented, compiled, flashed, advertised as `RFID Tools ESP32`, and accepted BLE connection. Command/inventory validation continues through the PHASE-004 app path. |
 
 ## Decisions
 
@@ -62,6 +63,7 @@ The plan should stay mostly stable. This status file should change as work progr
 | 2026-06-11 | PHASE-002 | Start protocol driver phase from the proven bring-up sketch. | The bring-up sketch contains validated command bytes, frame parsing, inventory decoding, power commands, and write/clone sequencing that should be formalized into a driver. |
 | 2026-06-11 | PHASE-002 | Keep YRM100 driver plain C++17 with host tests. | The parser and frame builder need to be tested without live RFID hardware or Arduino IDE. |
 | 2026-06-11 | PHASE-003 | Start BLE service as a separate Arduino-compatible sketch. | This preserves the proven bring-up sketch while creating a BLE peripheral that can be tested before full YRM100 integration. |
+| 2026-06-11 | PHASE-003 | Close PHASE-003 after BLE smoke test. | User confirmed firmware boot, advertised service/name, and BLE connection; manual JSON command testing is intentionally deferred in favor of app-based PHASE-004 validation. |
 | 2026-06-11 | PHASE-004 | Use the project iOS app as the BLE validation client. | User prefers not to validate PHASE-003 with a generic BLE utility. |
 
 ## Open Follow-Ups
@@ -81,11 +83,11 @@ The plan should stay mostly stable. This status file should change as work progr
 | FU-002-02 | PHASE-002 | Convert working frame builder/parser code into reusable driver code. | Done |
 | FU-002-03 | PHASE-002 | Capture protocol fixtures from confirmed hardware logs. | Done |
 | FU-002-04 | PHASE-002 | Add host-runnable parser and frame-builder tests. | Done |
-| FU-002-05 | PHASE-002 | Retest uploaded bring-up sketch after protocol-driver extraction and capture Serial Monitor output. | Open |
+| FU-002-05 | PHASE-002 | Retest uploaded bring-up sketch after protocol-driver extraction and capture Serial Monitor output. | Superseded by PHASE-003 BLE firmware smoke test |
 | FU-003-01 | PHASE-003 | Decide whether BLE service firmware stays Arduino-compatible or moves to PlatformIO/ESP-IDF before implementation grows. | Done |
-| FU-003-02 | PHASE-003 | Implement BLE service advertising with documented UUIDs. | In Progress |
-| FU-003-03 | PHASE-003 | Compile and flash `rfid_ble_service` on ESP32-S3 SuperMini. | Compile done; flash open |
-| FU-003-04 | PHASE-003 | Verify inventory stops on BLE `stopInventory` and disconnect. | Open |
+| FU-003-02 | PHASE-003 | Implement BLE service advertising with documented UUIDs. | Done |
+| FU-003-03 | PHASE-003 | Compile and flash `rfid_ble_service` on ESP32-S3 SuperMini. | Done |
+| FU-003-04 | PHASE-003 | Verify inventory stops on BLE `stopInventory` and disconnect. | Deferred to PHASE-004 app validation |
 | FU-004-01 | PHASE-004 | Build the iOS app shell with Xcode. | Done |
 | FU-004-02 | PHASE-004 | Run the app on a real iPhone and grant Bluetooth permission. | Open |
 | FU-004-03 | PHASE-004 | Validate scan/connect/subscribe/send-command path against the ESP32 firmware. | Open |
