@@ -33,6 +33,7 @@ final class BLEManager: NSObject, ObservableObject {
     private var reconnectAttempt = 0
     private var reconnectGeneration = 0
     private var eventTextBuffer = ""
+    private var notificationSequence = 0
 
     override init() {
         super.init()
@@ -235,12 +236,14 @@ final class BLEManager: NSObject, ObservableObject {
         }
     }
 
-    private func handleEventData(_ data: Data) {
+    private func handleEventData(_ data: Data, from characteristic: CBCharacteristic) {
         guard let text = String(data: data, encoding: .utf8) else {
             log(.error, "Received non-UTF8 event payload")
             return
         }
-        log(.firmware, "RX \(text)")
+        notificationSequence += 1
+        let source = characteristic.uuid == eventsUUID ? "events" : "status"
+        log(.firmware, "RX#\(notificationSequence) \(source) \(text)")
 
         if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             handleEventObject(object)
@@ -681,7 +684,7 @@ extension BLEManager: CBPeripheralDelegate {
             }
 
             if characteristic.uuid == eventsUUID || characteristic.uuid == statusUUID {
-                handleEventData(data)
+                handleEventData(data, from: characteristic)
             }
         }
     }
