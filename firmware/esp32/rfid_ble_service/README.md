@@ -15,6 +15,7 @@ available while BLE service work progresses.
 - Emits `tagSeen` events from YRM100 inventory notices.
 - Gets/sets TX power.
 - Gets/sets region.
+- Writes a same-length EPC value to the last inventoried target tag.
 - Sends a stop-inventory frame when BLE disconnects during an active scan.
 
 ## BLE UUIDs
@@ -39,9 +40,13 @@ Write UTF-8 JSON to the command characteristic:
 {"v":1,"id":6,"cmd":"setPower","dbm":15}
 {"v":1,"id":7,"cmd":"getRegion"}
 {"v":1,"id":8,"cmd":"setRegion","region":"US"}
+{"v":1,"id":9,"cmd":"writeEpc","epc":"E2000017221101441890ABCD"}
 ```
 
 Subscribe to the events characteristic to receive responses.
+
+`writeEpc` selects the last tag seen by inventory and writes EPC memory starting at EPC word 2.
+The new EPC must be the same byte length as the target tag EPC so the existing PC length bits remain valid.
 
 ## Arduino Build Note
 

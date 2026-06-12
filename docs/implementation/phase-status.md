@@ -1,8 +1,8 @@
 # Phase Status - RFID Tools
 
-**Current Phase**: PHASE-003 - ESP32 BLE RFID Service
-**Current Status**: PHASE-003 Complete
-**Previous Phase**: PHASE-002 - YRM100 UART Protocol Driver
+**Current Phase**: PHASE-004 - iOS App Shell and BLE Connection
+**Current Status**: PHASE-004 In Progress
+**Previous Phase**: PHASE-003 - ESP32 BLE RFID Service
 **Last Updated**: 2026-06-11
 
 ---
@@ -24,18 +24,17 @@ The plan should stay mostly stable. This status file should change as work progr
 
 ## Current Phase Checklist
 
-### PHASE-003 - ESP32 BLE RFID Service
+### PHASE-004 - iOS App Shell and BLE Connection
 
 | Item | Status | Evidence |
 |---|---|---|
-| Document stable BLE UUIDs | Done | `docs/solution-design/06-ble-protocol-design.md` defines service, command, events, and status UUIDs |
-| Define PHASE-003 command/event encoding | Done | `docs/solution-design/06-ble-protocol-design.md` defines protocol v1 JSON command/event examples |
-| Select ESP32 firmware framework for BLE service | Done | PHASE-003 starts with a separate Arduino-compatible sketch so bring-up firmware remains untouched |
-| Add BLE RFID service firmware entry point | Done | `firmware/esp32/rfid_ble_service/` boots, advertises the documented service, and accepts BLE connections |
-| Add command dispatcher for getInfo/status/inventory/config | Done | Commands route through an `AppCommand` enum and one-operation-at-a-time dispatcher |
-| Wire dispatcher to `Yrm100Driver` | Done | Inventory, stop, get/set power, and get/set region use shared `Yrm100Driver` command builders and parser |
-| Verify BLE discovery from iPhone or BLE tool | Done | User confirmed advertised name was correct and BLE connection succeeded |
-| Verify active scan stops on stop command or disconnect | Deferred | Firmware sends stop on explicit `stopInventory`, BLE disconnect, and pending-start interruption; end-to-end validation moves to PHASE-004 app testing |
+| Create Xcode project | Done | `ios/RFIDTools/RFIDTools.xcodeproj` builds with Xcode |
+| Add SwiftUI app shell | Done | `RFIDToolsApp` and `ContentView` added |
+| Add CoreBluetooth manager | Done | `BLEManager` scans for the RFID service, connects, discovers characteristics, and subscribes to events/status |
+| Add connection status model | Done | `ReaderConnectionState` drives reader status display |
+| Add diagnostics screen/log | Done | Main view includes in-app command/event/error diagnostics |
+| Add basic command send/event receive path | Done | App sends protocol v1 JSON commands and parses `status` / `tagSeen` events |
+| Validate on real iPhone | Pending | iOS Simulator can build UI but cannot validate BLE peripheral behavior |
 
 ## Phase History
 
@@ -65,6 +64,7 @@ The plan should stay mostly stable. This status file should change as work progr
 | 2026-06-11 | PHASE-002 | Keep YRM100 driver plain C++17 with host tests. | The parser and frame builder need to be tested without live RFID hardware or Arduino IDE. |
 | 2026-06-11 | PHASE-003 | Start BLE service as a separate Arduino-compatible sketch. | This preserves the proven bring-up sketch while creating a BLE peripheral that can be tested before full YRM100 integration. |
 | 2026-06-11 | PHASE-003 | Close PHASE-003 after BLE smoke test. | User confirmed firmware boot, advertised service/name, and BLE connection; manual JSON command testing is intentionally deferred in favor of app-based PHASE-004 validation. |
+| 2026-06-11 | PHASE-004 | Use the project iOS app as the BLE validation client. | User prefers not to validate PHASE-003 with a generic BLE utility. |
 
 ## Open Follow-Ups
 
@@ -88,3 +88,6 @@ The plan should stay mostly stable. This status file should change as work progr
 | FU-003-02 | PHASE-003 | Implement BLE service advertising with documented UUIDs. | Done |
 | FU-003-03 | PHASE-003 | Compile and flash `rfid_ble_service` on ESP32-S3 SuperMini. | Done |
 | FU-003-04 | PHASE-003 | Verify inventory stops on BLE `stopInventory` and disconnect. | Deferred to PHASE-004 app validation |
+| FU-004-01 | PHASE-004 | Build the iOS app shell with Xcode. | Done |
+| FU-004-02 | PHASE-004 | Run the app on a real iPhone and grant Bluetooth permission. | Open |
+| FU-004-03 | PHASE-004 | Validate scan/connect/subscribe/send-command path against the ESP32 firmware. | Open |
