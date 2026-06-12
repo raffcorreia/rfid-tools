@@ -16,62 +16,86 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    connectionSection
-                    powerSection
-                    readSection
-                    saveSection
-                    writeSection
-                    savedTagsSection
+            VStack(spacing: 0) {
+                header
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        connectionSection
+                        powerSection
+                        readSection
+                        saveSection
+                        writeSection
+                        savedTagsSection
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("RFID Tools")
-            .navigationBarTitleDisplayMode(.inline)
-            .dynamicTypeSize(.small ... .large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        DiagnosticsView()
-                            .environmentObject(bleManager)
-                    } label: {
-                        Image(systemName: "waveform.path.ecg")
-                    }
-                    .accessibilityLabel("Diagnostics")
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
+            .dynamicTypeSize(.xSmall ... .medium)
         }
     }
 
-    private var connectionSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(bleManager.connectionState.label, systemImage: connectionIcon)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(connectionColor)
+    private var header: some View {
+        HStack(spacing: 12) {
+            Text("RFID Tools")
+                .font(.title3.weight(.semibold))
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+
+            Spacer()
+
+            NavigationLink {
+                DiagnosticsView()
+                    .environmentObject(bleManager)
+            } label: {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 36, height: 36)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Diagnostics")
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private var connectionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Label(bleManager.connectionState.label, systemImage: connectionIcon)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(connectionColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Spacer()
+
+                Toggle("Auto-connect", isOn: Binding(
+                    get: { bleManager.isAutoConnectEnabled },
+                    set: { enabled in
+                        if enabled {
+                            bleManager.isAutoConnectEnabled = true
+                            bleManager.rescan()
+                        } else {
+                            bleManager.stopScan()
+                        }
+                    }
+                ))
+                .labelsHidden()
+            }
 
             Text(bleManager.statusSummary)
-                .font(.footnote)
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
-
-            Toggle("Auto-connect", isOn: Binding(
-                get: { bleManager.isAutoConnectEnabled },
-                set: { enabled in
-                    if enabled {
-                        bleManager.isAutoConnectEnabled = true
-                        bleManager.rescan()
-                    } else {
-                        bleManager.stopScan()
-                    }
-                }
-            ))
-            .font(.subheadline)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
 
             HStack(spacing: 10) {
                 Button {
@@ -94,47 +118,49 @@ struct ContentView: View {
             }
             .labelStyle(.titleAndIcon)
             .lineLimit(1)
-            .minimumScaleFactor(0.75)
+            .minimumScaleFactor(0.7)
         }
         .sectionStyle()
     }
 
     private var powerSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Label("Power", systemImage: "bolt.fill")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.footnote.weight(.semibold))
                 Spacer()
                 Text("\(bleManager.selectedPowerDbm) dBm")
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                    .font(.footnote.weight(.semibold).monospacedDigit())
             }
 
-            Slider(
-                value: Binding(
-                    get: { Double(bleManager.selectedPowerDbm) },
-                    set: { bleManager.selectedPowerDbm = Int($0.rounded()) }
-                ),
-                in: 15...26,
-                step: 1
-            )
+            HStack(spacing: 10) {
+                Slider(
+                    value: Binding(
+                        get: { Double(bleManager.selectedPowerDbm) },
+                        set: { bleManager.selectedPowerDbm = Int($0.rounded()) }
+                    ),
+                    in: 15...26,
+                    step: 1
+                )
 
-            Button {
-                bleManager.applyPower()
-            } label: {
-                Label("Set Power", systemImage: "checkmark.circle")
-                    .frame(maxWidth: .infinity)
+                Button {
+                    bleManager.applyPower()
+                } label: {
+                    Image(systemName: "checkmark")
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityLabel("Set Power")
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.regular)
         }
         .sectionStyle()
     }
 
     private var readSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Label("Read Tag", systemImage: "tag")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.footnote.weight(.semibold))
                 Spacer()
                 Picker("Format", selection: $tagDisplayFormat) {
                     ForEach(TagDisplayFormat.allCases) { format in
@@ -142,7 +168,7 @@ struct ContentView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 180)
+                .frame(maxWidth: 140)
             }
 
             latestTagView
@@ -202,9 +228,9 @@ struct ContentView: View {
     }
 
     private var saveSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Label("Save Current Tag", systemImage: "tray.and.arrow.down")
-                .font(.subheadline.weight(.semibold))
+                .font(.footnote.weight(.semibold))
 
             TextField("Tag name", text: $tagName)
                 .textInputAutocapitalization(.words)
@@ -225,9 +251,9 @@ struct ContentView: View {
     }
 
     private var writeSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Label("Write Tag", systemImage: "square.and.pencil")
-                .font(.subheadline.weight(.semibold))
+                .font(.footnote.weight(.semibold))
 
             if bleManager.savedTags.isEmpty {
                 Text("Saved tags will appear here after you read and save one.")
@@ -274,9 +300,9 @@ struct ContentView: View {
     }
 
     private var savedTagsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Label("Saved Tags", systemImage: "bookmark")
-                .font(.subheadline.weight(.semibold))
+                .font(.footnote.weight(.semibold))
 
             if bleManager.savedTags.isEmpty {
                 Text("No saved tags")
@@ -361,7 +387,7 @@ private struct DiagnosticsView: View {
 private extension View {
     func sectionStyle() -> some View {
         self
-            .padding(12)
+            .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 8))
