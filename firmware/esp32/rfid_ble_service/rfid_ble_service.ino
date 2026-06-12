@@ -38,7 +38,7 @@
 #endif
 
 static constexpr const char *kDeviceName = "RFID Tools ESP32";
-static constexpr const char *kFirmwareVersion = "0.1.5";
+static constexpr const char *kFirmwareVersion = "0.1.6";
 static constexpr const char *kServiceUuid = "63802432-69FC-406D-A538-FE33CEF32AEF";
 static constexpr const char *kCommandUuid = "DE0D7201-CC2B-46D9-8F92-564A209C37EF";
 static constexpr const char *kEventsUuid = "456F5CDA-632A-4541-A2A5-6FAEC234075E";
@@ -54,6 +54,10 @@ static constexpr int kMaxPowerDbm = 26;
 static constexpr uint8_t kRegionUs = 0x02;
 static constexpr size_t kMaxBleCommandLength = 256;
 static constexpr size_t kBleCommandQueueDepth = 4;
+static constexpr size_t kMaxBleEventLength = 384;
+static constexpr size_t kBleEventQueueDepth = 10;
+static constexpr uint32_t kBleNotifySpacingMs = 30;
+static constexpr size_t kMaxYrmBytesPerLoop = 128;
 
 static BLEServer *bleServer = nullptr;
 static BLECharacteristic *eventsCharacteristic = nullptr;
@@ -73,7 +77,14 @@ static std::vector<uint8_t> lastNotifiedInventoryEpc;
 
 struct QueuedBleCommand {
   bool occupied = false;
+  size_t length = 0;
   char text[kMaxBleCommandLength + 1] = {};
+};
+
+struct QueuedBleEvent {
+  bool occupied = false;
+  size_t length = 0;
+  char text[kMaxBleEventLength + 1] = {};
 };
 
 static portMUX_TYPE bleQueueMux = portMUX_INITIALIZER_UNLOCKED;
@@ -81,8 +92,15 @@ static QueuedBleCommand bleCommandQueue[kBleCommandQueueDepth];
 static size_t bleCommandHead = 0;
 static size_t bleCommandTail = 0;
 static size_t bleCommandCount = 0;
+static QueuedBleEvent bleEventQueue[kBleEventQueueDepth];
+static size_t bleEventHead = 0;
+static size_t bleEventTail = 0;
+static size_t bleEventCount = 0;
+static uint32_t lastBleNotifyMs = 0;
 static volatile bool bleCommandOverflow = false;
 static volatile bool bleCommandTooLong = false;
+static volatile bool bleEventOverflow = false;
+static volatile bool bleEventTooLong = false;
 static volatile bool bleConnectPending = false;
 static volatile bool bleDisconnectPending = false;
 static volatile bool bleRestartAdvertisingPending = false;
@@ -187,6 +205,7 @@ static bool enqueueBleCommand(const char *value, size_t length) {
   QueuedBleCommand &slot = bleCommandQueue[bleCommandTail];
   memcpy(slot.text, value, length);
   slot.text[length] = '\0';
+  slot.length = length;
   slot.occupied = true;
   bleCommandTail = (bleCommandTail + 1) % kBleCommandQueueDepth;
   bleCommandCount++;
@@ -201,8 +220,11 @@ static bool dequeueBleCommand(String &message) {
   portENTER_CRITICAL(&bleQueueMux);
   if (bleCommandCount > 0) {
     QueuedBleCommand &slot = bleCommandQueue[bleCommandHead];
-    strncpy(text, slot.text, sizeof(text) - 1);
+    const size_t length = slot.length < sizeof(text) - 1 ? slot.length : sizeof(text) - 1;
+    memcpy(text, slot.text, length);
+    text[length] = '\0';
     slot.text[0] = '\0';
+    slot.length = 0;
     slot.occupied = false;
     bleCommandHead = (bleCommandHead + 1) % kBleCommandQueueDepth;
     bleCommandCount--;
@@ -220,11 +242,79 @@ static void clearBleCommandQueue() {
   portENTER_CRITICAL(&bleQueueMux);
   for (QueuedBleCommand &slot : bleCommandQueue) {
     slot.text[0] = '\0';
+    slot.length = 0;
     slot.occupied = false;
   }
   bleCommandHead = 0;
   bleCommandTail = 0;
   bleCommandCount = 0;
+  portEXIT_CRITICAL(&bleQueueMux);
+}
+
+static bool enqueueBleEvent(const char *value, size_t length) {
+  if (length == 0) {
+    return true;
+  }
+
+  if (length > kMaxBleEventLength) {
+    bleEventTooLong = true;
+    return false;
+  }
+
+  portENTER_CRITICAL(&bleQueueMux);
+  if (bleEventCount >= kBleEventQueueDepth) {
+    bleEventOverflow = true;
+    portEXIT_CRITICAL(&bleQueueMux);
+    return false;
+  }
+
+  QueuedBleEvent &slot = bleEventQueue[bleEventTail];
+  memcpy(slot.text, value, length);
+  slot.text[length] = '\0';
+  slot.length = length;
+  slot.occupied = true;
+  bleEventTail = (bleEventTail + 1) % kBleEventQueueDepth;
+  bleEventCount++;
+  portEXIT_CRITICAL(&bleQueueMux);
+  return true;
+}
+
+static bool dequeueBleEvent(char *text, size_t textSize) {
+  bool hasEvent = false;
+
+  if (textSize == 0) {
+    return false;
+  }
+  text[0] = '\0';
+
+  portENTER_CRITICAL(&bleQueueMux);
+  if (bleEventCount > 0) {
+    QueuedBleEvent &slot = bleEventQueue[bleEventHead];
+    const size_t length = slot.length < textSize - 1 ? slot.length : textSize - 1;
+    memcpy(text, slot.text, length);
+    text[length] = '\0';
+    slot.text[0] = '\0';
+    slot.length = 0;
+    slot.occupied = false;
+    bleEventHead = (bleEventHead + 1) % kBleEventQueueDepth;
+    bleEventCount--;
+    hasEvent = true;
+  }
+  portEXIT_CRITICAL(&bleQueueMux);
+
+  return hasEvent;
+}
+
+static void clearBleEventQueue() {
+  portENTER_CRITICAL(&bleQueueMux);
+  for (QueuedBleEvent &slot : bleEventQueue) {
+    slot.text[0] = '\0';
+    slot.length = 0;
+    slot.occupied = false;
+  }
+  bleEventHead = 0;
+  bleEventTail = 0;
+  bleEventCount = 0;
   portEXIT_CRITICAL(&bleQueueMux);
 }
 
@@ -526,13 +616,10 @@ static void notifyEvent(const String &json) {
   Serial.print("[BLE EVT] ");
   Serial.println(json);
 
-  if (eventsCharacteristic == nullptr) {
+  if (eventsCharacteristic == nullptr || !bleConnected) {
     return;
   }
-  eventsCharacteristic->setValue(json.c_str());
-  if (bleConnected) {
-    eventsCharacteristic->notify();
-  }
+  enqueueBleEvent(json.c_str(), json.length());
 }
 
 static void notifyError(int id, const char *code, const char *source, const char *message) {
@@ -836,7 +923,9 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
 }
 
 static void pollYrmSerial() {
-  while (YrmSerial.available() > 0) {
+  size_t bytesRead = 0;
+  while (YrmSerial.available() > 0 && bytesRead < kMaxYrmBytesPerLoop) {
+    bytesRead++;
     const auto event = yrmParser.feed(static_cast<uint8_t>(YrmSerial.read()));
     switch (event.status) {
       case rfid::yrm100::ParseStatus::FrameReady:
@@ -978,6 +1067,7 @@ static void processBleLifecycleEvents() {
   if (bleDisconnectPending) {
     bleDisconnectPending = false;
     clearBleCommandQueue();
+    clearBleEventQueue();
     stopInventoryForDisconnect();
     updateStatusCharacteristic();
     Serial.println("[BLE] central disconnected");
@@ -1010,6 +1100,37 @@ static void processQueuedBleCommands() {
   while (dequeueBleCommand(message)) {
     handleCommand(message);
   }
+}
+
+static void processQueuedBleEvents() {
+  if (bleEventTooLong) {
+    bleEventTooLong = false;
+    Serial.println("[BLE EVT] dropped oversized event");
+  }
+
+  if (bleEventOverflow) {
+    bleEventOverflow = false;
+    Serial.println("[BLE EVT] dropped event because queue is full");
+  }
+
+  if (!bleConnected || eventsCharacteristic == nullptr) {
+    clearBleEventQueue();
+    return;
+  }
+
+  const uint32_t now = millis();
+  if (now - lastBleNotifyMs < kBleNotifySpacingMs) {
+    return;
+  }
+
+  char text[kMaxBleEventLength + 1] = {};
+  if (!dequeueBleEvent(text, sizeof(text))) {
+    return;
+  }
+
+  eventsCharacteristic->setValue(text);
+  eventsCharacteristic->notify();
+  lastBleNotifyMs = now;
 }
 
 class ServerCallbacks final : public BLEServerCallbacks {
@@ -1103,6 +1224,7 @@ void loop() {
 
   processBleLifecycleEvents();
   processQueuedBleCommands();
+  processQueuedBleEvents();
   pollYrmSerial();
   checkCommandTimeout();
 
@@ -1111,4 +1233,6 @@ void loop() {
     lastStatusUpdateMs = now;
     updateStatusCharacteristic();
   }
+
+  delay(1);
 }
