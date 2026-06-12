@@ -292,7 +292,7 @@ The ESP32 advertises as an RFID BLE peripheral, accepts high-level app commands,
 - Status/capability characteristic.
 - Firmware command dispatcher.
 - Basic commands:
-  - hello/status
+  - getInfo/status
   - start inventory
   - stop inventory
   - get/set power

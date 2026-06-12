@@ -27,7 +27,7 @@ enum ReaderConnectionState: Equatable {
 }
 
 enum RFIDCommand: String, CaseIterable, Identifiable {
-    case hello
+    case getInfo
     case status
     case getPower
     case setPower

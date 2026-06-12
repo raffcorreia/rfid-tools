@@ -85,7 +85,7 @@ final class BLEManager: NSObject, ObservableObject {
             payload["dbm"] = 15
         case .setRegion:
             payload["region"] = "US"
-        case .hello, .status, .getPower, .getRegion, .startInventory, .stopInventory:
+        case .getInfo, .status, .getPower, .getRegion, .startInventory, .stopInventory:
             break
         }
 
@@ -281,7 +281,7 @@ extension BLEManager: CBPeripheralDelegate {
             }
 
             if commandCharacteristic != nil {
-                send(.hello)
+                send(.getInfo)
                 send(.status)
             }
         }

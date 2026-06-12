@@ -30,7 +30,7 @@ Recommended logical message groups:
 
 | Group | Commands / Events |
 |---|---|
-| Connection | hello, status, firmware info |
+| Connection | getInfo, status, firmware info |
 | Inventory | start scan, stop scan, tag seen |
 | Memory | read memory, read result |
 | Write | write memory, write result, verification result |
@@ -68,7 +68,7 @@ version bump instead of silently truncating.
 Conceptual commands:
 
 ```json
-{"v":1,"id":1,"cmd":"hello"}
+{"v":1,"id":1,"cmd":"getInfo"}
 {"v":1,"id":2,"cmd":"status"}
 {"v":1,"id":3,"cmd":"startInventory","mode":"continuous"}
 {"v":1,"id":4,"cmd":"stopInventory"}
@@ -85,7 +85,7 @@ confirmation screens exist.
 ## Event Examples
 
 ```json
-{"v":1,"id":1,"evt":"hello","name":"RFID Tools ESP32","fw":"0.1.0","caps":["inventory","power","region"]}
+{"v":1,"id":1,"evt":"info","name":"RFID Tools ESP32","fw":"0.1.0","caps":["inventory","power","region"]}
 {"v":1,"id":2,"evt":"status","state":"idle","reader":"ready","region":"US","powerDbm":18}
 {"v":1,"id":3,"evt":"scanStarted"}
 {"v":1,"id":null,"evt":"tagSeen","epc":"E2000017221101441890ABCD","pc":"3000","rssi":-42,"crc":"1234","seen":1}

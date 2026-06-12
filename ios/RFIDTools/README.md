@@ -22,7 +22,7 @@ The app communicates with the ESP32 through the documented BLE protocol. It shou
 - connect and disconnect from the ESP32 peripheral
 - discover command, events, and status characteristics
 - subscribe to event/status updates
-- send development commands such as `hello`, `status`, `startInventory`, and `stopInventory`
+- send development commands such as `getInfo`, `status`, `startInventory`, and `stopInventory`
 - display live `tagSeen` events and a diagnostics log
 
 Build from this directory with Xcode, or from the repository root with:
