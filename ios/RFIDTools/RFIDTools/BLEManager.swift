@@ -32,6 +32,7 @@ final class BLEManager: NSObject, ObservableObject {
     private var isUserDisconnecting = false
     private var reconnectAttempt = 0
     private var reconnectGeneration = 0
+    private var eventTextBuffer = ""
 
     override init() {
         super.init()
@@ -245,9 +246,17 @@ final class BLEManager: NSObject, ObservableObject {
             return
         }
 
-        let objects = extractJSONObjects(from: text)
+        eventTextBuffer += text
+        let result = extractJSONObjects(from: eventTextBuffer)
+        eventTextBuffer = result.remainder
+        if eventTextBuffer.count > 4096 {
+            log(.error, "Discarding incomplete BLE event buffer")
+            eventTextBuffer.removeAll()
+        }
+
+        let objects = result.objects
         guard !objects.isEmpty else {
-            log(.firmware, text)
+            log(.firmware, "Buffered partial BLE event")
             return
         }
 
@@ -268,6 +277,7 @@ final class BLEManager: NSObject, ObservableObject {
         } else if event == "status" {
             updateStatusSummary(from: object)
         } else if event == "tagSeen", let epc = object["epc"] as? String {
+            log(.firmware, "Tag seen \(epc)")
             upsertTag(from: object, epc: epc)
         } else if event == "commandAck" {
             log(.firmware, "Command acknowledged")
@@ -287,10 +297,11 @@ final class BLEManager: NSObject, ObservableObject {
         }
     }
 
-    private func extractJSONObjects(from text: String) -> [[String: Any]] {
+    private func extractJSONObjects(from text: String) -> (objects: [[String: Any]], remainder: String) {
         var objects: [[String: Any]] = []
         var depth = 0
         var startIndex: String.Index?
+        var consumedThrough: String.Index?
         var isInString = false
         var isEscaped = false
 
@@ -322,13 +333,15 @@ final class BLEManager: NSObject, ObservableObject {
                     if let data = jsonText.data(using: .utf8),
                        let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                         objects.append(object)
+                        consumedThrough = text.index(after: index)
                     }
                     startIndex = nil
                 }
             }
         }
 
-        return objects
+        let remainderStart = startIndex ?? consumedThrough ?? text.startIndex
+        return (objects, String(text[remainderStart...]))
     }
 
     private func handleCommandResult(_ object: [String: Any]) {
