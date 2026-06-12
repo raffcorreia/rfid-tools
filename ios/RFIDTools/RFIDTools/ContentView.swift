@@ -465,12 +465,13 @@ private struct DiagnosticsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(entry.message)
-                        .font(.callout)
+                        .font(.system(.footnote, design: .monospaced))
                         .textSelection(.enabled)
                 }
             }
         }
         .navigationTitle("Diagnostics")
+        .dynamicTypeSize(.medium)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Done") {
