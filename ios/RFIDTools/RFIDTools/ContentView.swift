@@ -17,7 +17,7 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 14) {
                     connectionSection
                     powerSection
                     readSection
@@ -26,11 +26,13 @@ struct ContentView: View {
                     savedTagsSection
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 20)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("RFID Tools")
+            .navigationBarTitleDisplayMode(.inline)
+            .dynamicTypeSize(.small ... .large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
@@ -46,14 +48,17 @@ struct ContentView: View {
     }
 
     private var connectionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Label(bleManager.connectionState.label, systemImage: connectionIcon)
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(connectionColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
             Text(bleManager.statusSummary)
-                .font(.subheadline)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
 
             Toggle("Auto-connect", isOn: Binding(
                 get: { bleManager.isAutoConnectEnabled },
@@ -66,34 +71,42 @@ struct ContentView: View {
                     }
                 }
             ))
+            .font(.subheadline)
 
             HStack(spacing: 10) {
                 Button {
                     bleManager.rescan()
                 } label: {
-                    Label("Find Reader", systemImage: "antenna.radiowaves.left.and.right")
+                    Label("Find", systemImage: "antenna.radiowaves.left.and.right")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.regular)
 
                 Button {
                     bleManager.disconnect()
                 } label: {
                     Label("Disconnect", systemImage: "xmark.circle")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.regular)
             }
+            .labelStyle(.titleAndIcon)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
         }
         .sectionStyle()
     }
 
     private var powerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("Power", systemImage: "bolt.fill")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                 Spacer()
                 Text("\(bleManager.selectedPowerDbm) dBm")
-                    .font(.headline.monospacedDigit())
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
             }
 
             Slider(
@@ -109,17 +122,19 @@ struct ContentView: View {
                 bleManager.applyPower()
             } label: {
                 Label("Set Power", systemImage: "checkmark.circle")
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
         }
         .sectionStyle()
     }
 
     private var readSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("Read Tag", systemImage: "tag")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                 Spacer()
                 Picker("Format", selection: $tagDisplayFormat) {
                     ForEach(TagDisplayFormat.allCases) { format in
@@ -137,6 +152,7 @@ struct ContentView: View {
                     bleManager.startInventory()
                 } label: {
                     Label("Read", systemImage: "dot.radiowaves.left.and.right")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
 
@@ -144,9 +160,12 @@ struct ContentView: View {
                     bleManager.stopInventory()
                 } label: {
                     Label("Stop", systemImage: "stop.fill")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
         }
         .sectionStyle()
     }
@@ -156,7 +175,7 @@ struct ContentView: View {
         if let latestTag = bleManager.latestTag {
             VStack(alignment: .leading, spacing: 8) {
                 Text(latestTag.displayValue(format: tagDisplayFormat))
-                    .font(.system(.body, design: tagDisplayFormat == .hex ? .monospaced : .default))
+                    .font(.system(.subheadline, design: tagDisplayFormat == .hex ? .monospaced : .default))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -170,22 +189,22 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
-            .padding(12)
+            .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 8))
         } else {
             Text("No tag read yet")
-                .font(.subheadline)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private var saveSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Label("Save Current Tag", systemImage: "tray.and.arrow.down")
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
 
             TextField("Tag name", text: $tagName)
                 .textInputAutocapitalization(.words)
@@ -196,21 +215,23 @@ struct ContentView: View {
                 tagName = ""
             } label: {
                 Label("Save Tag", systemImage: "plus.circle")
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
             .disabled(bleManager.latestTag == nil)
         }
         .sectionStyle()
     }
 
     private var writeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Label("Write Tag", systemImage: "square.and.pencil")
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
 
             if bleManager.savedTags.isEmpty {
                 Text("Saved tags will appear here after you read and save one.")
-                    .font(.subheadline)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
                 Picker("Saved tag", selection: Binding(
@@ -227,6 +248,7 @@ struct ContentView: View {
                     bleManager.applySavedTag(selectedSavedTag)
                 } label: {
                     Label("Apply Saved Tag", systemImage: "arrow.down.doc")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -240,6 +262,7 @@ struct ContentView: View {
                 bleManager.writeText(customText)
             } label: {
                 Label("Write Text", systemImage: "text.cursor")
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
 
@@ -251,13 +274,13 @@ struct ContentView: View {
     }
 
     private var savedTagsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Label("Saved Tags", systemImage: "bookmark")
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
 
             if bleManager.savedTags.isEmpty {
                 Text("No saved tags")
-                    .font(.subheadline)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(bleManager.savedTags) { tag in
@@ -338,7 +361,7 @@ private struct DiagnosticsView: View {
 private extension View {
     func sectionStyle() -> some View {
         self
-            .padding(16)
+            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 8))
