@@ -21,6 +21,7 @@
 		1A0000010000000000000013 /* BLEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEManager.swift; sourceTree = "<group>"; };
 		1A0000010000000000000014 /* BLEModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEModels.swift; sourceTree = "<group>"; };
 		1A0000010000000000000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1A0000010000000000000016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -50,6 +51,7 @@
 				1A0000010000000000000013 /* BLEManager.swift */,
 				1A0000010000000000000014 /* BLEModels.swift */,
 				1A0000010000000000000015 /* Assets.xcassets */,
+				1A0000010000000000000016 /* Info.plist */,
 			);
 			path = RFIDTools;
 			sourceTree = "<group>";
@@ -270,10 +272,8 @@
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = XR4TE3Q682;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "RFID Tools";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "RFID Tools uses Bluetooth to connect to the ESP32 RFID reader.";
-				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "RFID Tools uses Bluetooth to connect to the ESP32 RFID reader.";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RFIDTools/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raffcorreia.RFIDTools;
@@ -293,10 +293,8 @@
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = XR4TE3Q682;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "RFID Tools";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "RFID Tools uses Bluetooth to connect to the ESP32 RFID reader.";
-				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "RFID Tools uses Bluetooth to connect to the ESP32 RFID reader.";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RFIDTools/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raffcorreia.RFIDTools;
