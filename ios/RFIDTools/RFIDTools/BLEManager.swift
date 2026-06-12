@@ -104,7 +104,7 @@ final class BLEManager: NSObject, ObservableObject {
         tags.removeAll()
         latestTag = nil
         isInventoryRunning = true
-        statusSummary = "Reading nearby tags"
+        statusSummary = "Reading tag"
         send(.startInventory)
     }
 
@@ -246,8 +246,14 @@ final class BLEManager: NSObject, ObservableObject {
             log(.firmware, "Command acknowledged")
         } else if event == "result" {
             handleCommandResult(object)
+        } else if event == "scanStopped" {
+            isInventoryRunning = false
+            if latestTag == nil {
+                statusSummary = "Read complete"
+            }
         } else if event == "error" {
             let message = object["message"] as? String ?? "Reader reported an error"
+            isInventoryRunning = false
             statusSummary = message
             lastWriteMessage = message
             log(.error, message)
@@ -309,6 +315,7 @@ final class BLEManager: NSObject, ObservableObject {
             )
         }
         latestTag = tags.first(where: { $0.epc == epc })
+        isInventoryRunning = false
         statusSummary = "Read tag \(epc)"
     }
 

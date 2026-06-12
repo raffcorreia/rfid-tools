@@ -589,6 +589,12 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
                 "\",\"pc\":\"" + String(tag.pc, HEX) +
                 "\",\"rssi\":" + String(tag.rssiDbm) +
                 ",\"crc\":\"" + String(tag.crc, HEX) + "\"}");
+    if (pending.action == PendingAction::StartInventory) {
+      notifyEvent(String("{\"v\":1,\"id\":") + pending.id + ",\"evt\":\"scanStopped\",\"reason\":\"single_read\"}");
+      scanActive = false;
+      clearPending();
+      updateStatusCharacteristic();
+    }
     return;
   }
 
@@ -754,7 +760,7 @@ static void checkCommandTimeout() {
 
   const PendingAction timedOutAction = pending.action;
   notifyError(pending.id, "reader_timeout", "yrm100", "Reader did not respond");
-  if (timedOutAction == PendingAction::StartInventory) {
+  if (timedOutAction == PendingAction::StartInventory && scanActive) {
     const auto stopFrame = rfid::yrm100::buildStopMultipleInventory();
     Serial.println("[YRM TX] stop inventory after start timeout");
     YrmSerial.write(stopFrame.data(), stopFrame.size());
@@ -793,8 +799,9 @@ static void handleCommand(const String &message) {
       sendStopInventoryCommand(id);
       break;
     case AppCommand::StartInventory:
-      sendYrmCommand(id, PendingAction::StartInventory, static_cast<uint8_t>(rfid::yrm100::Command::MultipleInventory),
-                     rfid::yrm100::buildMultipleInventory());
+      scanActive = false;
+      sendYrmCommand(id, PendingAction::StartInventory, static_cast<uint8_t>(rfid::yrm100::Command::SingleInventory),
+                     rfid::yrm100::buildSingleInventory());
       break;
     case AppCommand::GetPower:
       sendYrmCommand(id, PendingAction::GetPower, static_cast<uint8_t>(rfid::yrm100::Command::GetTxPower),

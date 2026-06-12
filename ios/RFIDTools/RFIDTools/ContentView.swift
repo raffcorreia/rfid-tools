@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var customText = ""
     @State private var tagDisplayFormat: TagDisplayFormat = .hex
     @State private var selectedSavedTagID: UUID?
+    @State private var isShowingDiagnostics = false
 
     private var selectedSavedTag: SavedTag? {
         guard let selectedSavedTagID else {
@@ -15,7 +16,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        GeometryReader { proxy in
             VStack(spacing: 0) {
                 header
 
@@ -31,11 +32,19 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
+                    .frame(minHeight: proxy.size.height - proxy.safeAreaInsets.top - proxy.safeAreaInsets.bottom, alignment: .top)
                 }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
             .background(Color(.systemGroupedBackground))
-            .toolbar(.hidden, for: .navigationBar)
-            .dynamicTypeSize(.xSmall ... .medium)
+        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .dynamicTypeSize(.medium)
+        .sheet(isPresented: $isShowingDiagnostics) {
+            NavigationStack {
+                DiagnosticsView()
+                    .environmentObject(bleManager)
+            }
         }
     }
 
@@ -47,9 +56,8 @@ struct ContentView: View {
 
             Spacer()
 
-            NavigationLink {
-                DiagnosticsView()
-                    .environmentObject(bleManager)
+            Button {
+                isShowingDiagnostics = true
             } label: {
                 Image(systemName: "waveform.path.ecg")
                     .font(.body.weight(.semibold))
@@ -102,19 +110,21 @@ struct ContentView: View {
                     bleManager.rescan()
                 } label: {
                     Label("Find", systemImage: "antenna.radiowaves.left.and.right")
+                        .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.regular)
+                .controlSize(.small)
 
                 Button {
                     bleManager.disconnect()
                 } label: {
                     Label("Disconnect", systemImage: "xmark.circle")
+                        .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.regular)
+                .controlSize(.small)
             }
             .labelStyle(.titleAndIcon)
             .lineLimit(1)
@@ -178,17 +188,21 @@ struct ContentView: View {
                     bleManager.startInventory()
                 } label: {
                     Label("Read", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.small)
 
                 Button {
                     bleManager.stopInventory()
                 } label: {
                     Label("Stop", systemImage: "stop.fill")
+                        .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
             }
             .lineLimit(1)
             .minimumScaleFactor(0.8)
@@ -241,10 +255,11 @@ struct ContentView: View {
                 tagName = ""
             } label: {
                 Label("Save Tag", systemImage: "plus.circle")
+                    .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.regular)
+            .controlSize(.small)
             .disabled(bleManager.latestTag == nil)
         }
         .sectionStyle()
@@ -274,9 +289,11 @@ struct ContentView: View {
                     bleManager.applySavedTag(selectedSavedTag)
                 } label: {
                     Label("Apply Saved Tag", systemImage: "arrow.down.doc")
+                        .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.small)
             }
 
             TextField("Text to write", text: $customText)
@@ -288,9 +305,11 @@ struct ContentView: View {
                 bleManager.writeText(customText)
             } label: {
                 Label("Write Text", systemImage: "text.cursor")
+                    .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .controlSize(.small)
 
             Text(bleManager.lastWriteMessage)
                 .font(.caption)
