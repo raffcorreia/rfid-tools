@@ -3,6 +3,7 @@ import Foundation
 enum ReaderConnectionState: Equatable {
     case bluetoothUnavailable
     case disconnected
+    case reconnecting
     case scanning
     case connecting(String)
     case connected(String)
@@ -14,8 +15,10 @@ enum ReaderConnectionState: Equatable {
             return "Bluetooth unavailable"
         case .disconnected:
             return "Disconnected"
+        case .reconnecting:
+            return "Reconnecting"
         case .scanning:
-            return "Scanning"
+            return "Looking for reader"
         case .connecting(let name):
             return "Connecting to \(name)"
         case .connected(let name):
@@ -35,6 +38,13 @@ enum RFIDCommand: String, CaseIterable, Identifiable {
     case setRegion
     case startInventory
     case stopInventory
+
+    var id: String { rawValue }
+}
+
+enum TagDisplayFormat: String, CaseIterable, Identifiable {
+    case text = "Text"
+    case hex = "Hex"
 
     var id: String { rawValue }
 }
@@ -80,4 +90,60 @@ struct TagRead: Identifiable, Equatable {
     var crc: String?
     var seenCount: Int
     var updatedAt: Date
+
+    func displayValue(format: TagDisplayFormat) -> String {
+        switch format {
+        case .hex:
+            return epc
+        case .text:
+            return epc.hexDecodedString ?? "Not readable as text"
+        }
+    }
+}
+
+struct SavedTag: Identifiable, Codable, Equatable {
+    let id: UUID
+    var name: String
+    var epc: String
+    var createdAt: Date
+
+    init(id: UUID = UUID(), name: String, epc: String, createdAt: Date = Date()) {
+        self.id = id
+        self.name = name
+        self.epc = epc
+        self.createdAt = createdAt
+    }
+}
+
+extension String {
+    var hexDecodedString: String? {
+        let cleaned = filter { !$0.isWhitespace }
+        guard cleaned.count.isMultiple(of: 2), !cleaned.isEmpty else {
+            return nil
+        }
+
+        var bytes: [UInt8] = []
+        var index = cleaned.startIndex
+        while index < cleaned.endIndex {
+            let next = cleaned.index(index, offsetBy: 2)
+            guard let byte = UInt8(cleaned[index..<next], radix: 16) else {
+                return nil
+            }
+            bytes.append(byte)
+            index = next
+        }
+
+        let printable = bytes.filter { $0 >= 32 && $0 <= 126 }
+        guard printable.count == bytes.count else {
+            return nil
+        }
+
+        return String(bytes: bytes, encoding: .utf8)
+    }
+
+    var utf8HexEncoded: String {
+        data(using: .utf8)?
+            .map { String(format: "%02X", $0) }
+            .joined(separator: " ") ?? ""
+    }
 }

@@ -7,12 +7,19 @@ final class BLEManager: NSObject, ObservableObject {
     @Published private(set) var peripherals: [ReaderPeripheral] = []
     @Published private(set) var diagnostics: [DiagnosticEntry] = []
     @Published private(set) var tags: [TagRead] = []
-    @Published private(set) var statusSummary = "No reader status"
+    @Published private(set) var savedTags: [SavedTag] = []
+    @Published private(set) var statusSummary = "Searching for the reader when Bluetooth is ready"
+    @Published private(set) var latestTag: TagRead?
+    @Published private(set) var isInventoryRunning = false
+    @Published private(set) var lastWriteMessage = "Writing tags needs firmware support for a write command."
+    @Published var isAutoConnectEnabled = true
+    @Published var selectedPowerDbm = 15
 
     private let serviceUUID = CBUUID(string: "63802432-69FC-406D-A538-FE33CEF32AEF")
     private let commandUUID = CBUUID(string: "DE0D7201-CC2B-46D9-8F92-564A209C37EF")
     private let eventsUUID = CBUUID(string: "456F5CDA-632A-4541-A2A5-6FAEC234075E")
     private let statusUUID = CBUUID(string: "0AF05FBF-ADAA-4D94-8DCF-44A62F82332B")
+    private let savedTagsKey = "rfid-tools.saved-tags.v1"
 
     private var central: CBCentralManager?
     private var discoveredPeripherals: [UUID: CBPeripheral] = [:]
@@ -24,28 +31,44 @@ final class BLEManager: NSObject, ObservableObject {
 
     override init() {
         super.init()
+        loadSavedTags()
         central = CBCentralManager(delegate: self, queue: nil)
     }
 
     func startScan() {
+        isAutoConnectEnabled = true
+        beginScan(connectionState: .scanning, message: "Looking for RFID Tools ESP32")
+    }
+
+    func rescan() {
+        beginScan(connectionState: .scanning, message: "Looking for RFID Tools ESP32")
+    }
+
+    private func beginScan(connectionState nextState: ReaderConnectionState, message: String) {
         guard central?.state == .poweredOn else {
             connectionState = .bluetoothUnavailable
+            statusSummary = "Turn on Bluetooth to connect to the reader"
             log(.error, "Bluetooth is not powered on")
             return
         }
 
         peripherals.removeAll()
         discoveredPeripherals.removeAll()
-        connectionState = .scanning
-        log(.app, "Scanning for RFID Tools ESP32")
+        connectionState = nextState
+        statusSummary = message
+        log(.app, message)
         central?.scanForPeripherals(withServices: [serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
     }
 
     func stopScan() {
+        isAutoConnectEnabled = false
         central?.stopScan()
         if case .scanning = connectionState {
             connectionState = .disconnected
+        } else if case .reconnecting = connectionState {
+            connectionState = .disconnected
         }
+        statusSummary = "Auto-connect is off"
         log(.app, "Scan stopped")
     }
 
@@ -57,6 +80,7 @@ final class BLEManager: NSObject, ObservableObject {
 
         central?.stopScan()
         connectionState = .connecting(peripheral.name)
+        statusSummary = "Connecting to \(peripheral.name)"
         log(.app, "Connecting to \(peripheral.name)")
         connectedPeripheral = cbPeripheral
         cbPeripheral.delegate = self
@@ -64,8 +88,11 @@ final class BLEManager: NSObject, ObservableObject {
     }
 
     func disconnect() {
+        isAutoConnectEnabled = false
+        isInventoryRunning = false
         guard let connectedPeripheral else {
             connectionState = .disconnected
+            statusSummary = "Disconnected"
             return
         }
 
@@ -73,7 +100,74 @@ final class BLEManager: NSObject, ObservableObject {
         central?.cancelPeripheralConnection(connectedPeripheral)
     }
 
+    func startInventory() {
+        tags.removeAll()
+        latestTag = nil
+        isInventoryRunning = true
+        statusSummary = "Reading nearby tags"
+        send(.startInventory)
+    }
+
+    func stopInventory() {
+        isInventoryRunning = false
+        statusSummary = latestTag == nil ? "Scan stopped" : "Scan stopped with \(tags.count) tag\(tags.count == 1 ? "" : "s") found"
+        send(.stopInventory)
+    }
+
+    func applyPower() {
+        sendCommand(.setPower, values: ["dbm": selectedPowerDbm])
+        statusSummary = "Setting reader power to \(selectedPowerDbm) dBm"
+    }
+
+    func saveLatestTag(named name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let latestTag else {
+            statusSummary = "Read a tag before saving"
+            return
+        }
+        guard !trimmed.isEmpty else {
+            statusSummary = "Enter a name for this tag"
+            return
+        }
+
+        let savedTag = SavedTag(name: trimmed, epc: latestTag.epc)
+        savedTags.insert(savedTag, at: 0)
+        persistSavedTags()
+        statusSummary = "Saved \(trimmed)"
+    }
+
+    func deleteSavedTags(at offsets: IndexSet) {
+        savedTags.remove(atOffsets: offsets)
+        persistSavedTags()
+    }
+
+    func deleteSavedTag(_ savedTag: SavedTag) {
+        savedTags.removeAll { $0.id == savedTag.id }
+        persistSavedTags()
+    }
+
+    func applySavedTag(_ savedTag: SavedTag?) {
+        guard let savedTag else {
+            lastWriteMessage = "Choose a saved tag first"
+            return
+        }
+        requestTagWrite(epc: savedTag.epc, label: savedTag.name)
+    }
+
+    func writeText(_ value: String) {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            lastWriteMessage = "Type the text to write"
+            return
+        }
+        requestTagWrite(epc: trimmed.utf8HexEncoded.replacingOccurrences(of: " ", with: ""), label: trimmed)
+    }
+
     func send(_ command: RFIDCommand) {
+        sendCommand(command)
+    }
+
+    private func sendCommand(_ command: RFIDCommand, values: [String: Any] = [:]) {
         var payload: [String: Any] = [
             "v": 1,
             "id": nextCommandID,
@@ -82,7 +176,7 @@ final class BLEManager: NSObject, ObservableObject {
 
         switch command {
         case .setPower:
-            payload["dbm"] = 15
+            payload["dbm"] = values["dbm"] ?? selectedPowerDbm
         case .setRegion:
             payload["region"] = "US"
         case .getInfo, .status, .getPower, .getRegion, .startInventory, .stopInventory:
@@ -93,8 +187,19 @@ final class BLEManager: NSObject, ObservableObject {
         send(payload)
     }
 
+    private func requestTagWrite(epc: String, label: String) {
+        guard commandCharacteristic != nil, connectedPeripheral != nil else {
+            lastWriteMessage = "Connect to the reader before writing"
+            return
+        }
+
+        lastWriteMessage = "Write is ready in the app, but this firmware does not expose a write command yet."
+        log(.app, "Write requested for \(label); firmware write command unavailable")
+    }
+
     private func send(_ payload: [String: Any]) {
         guard let connectedPeripheral, let commandCharacteristic else {
+            statusSummary = "Reader is not ready yet"
             log(.error, "Command characteristic is not ready")
             return
         }
@@ -102,8 +207,11 @@ final class BLEManager: NSObject, ObservableObject {
         do {
             let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
             connectedPeripheral.writeValue(data, for: commandCharacteristic, type: .withResponse)
-            log(.app, String(data: data, encoding: .utf8) ?? "<invalid command>")
+            if let command = payload["cmd"] as? String {
+                log(.app, "Sent \(command)")
+            }
         } catch {
+            statusSummary = "Could not send command"
             log(.error, "Failed to encode command: \(error.localizedDescription)")
         }
     }
@@ -114,16 +222,44 @@ final class BLEManager: NSObject, ObservableObject {
             return
         }
 
-        log(.firmware, text)
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let event = object["evt"] as? String else {
+            log(.firmware, text)
             return
         }
 
-        if event == "status" {
-            statusSummary = text
+        if event == "info" {
+            statusSummary = "Reader ready"
+            log(.firmware, "Reader info received")
+        } else if event == "status" {
+            updateStatusSummary(from: object)
         } else if event == "tagSeen", let epc = object["epc"] as? String {
             upsertTag(from: object, epc: epc)
+        } else if event == "commandAck" {
+            log(.firmware, "Command acknowledged")
+        } else if event == "error" {
+            let message = object["message"] as? String ?? "Reader reported an error"
+            statusSummary = message
+            log(.error, message)
+        }
+    }
+
+    private func updateStatusSummary(from object: [String: Any]) {
+        let connected = object["yrm100Connected"] as? Bool
+        let inventory = object["inventoryRunning"] as? Bool
+        if let inventory {
+            isInventoryRunning = inventory
+        }
+
+        switch (connected, inventory) {
+        case (.some(true), .some(true)):
+            statusSummary = "Reader connected and scanning"
+        case (.some(true), _):
+            statusSummary = "Reader connected"
+        case (.some(false), _):
+            statusSummary = "RFID module is not responding"
+        default:
+            statusSummary = "Reader status updated"
         }
     }
 
@@ -144,6 +280,8 @@ final class BLEManager: NSObject, ObservableObject {
                 at: 0
             )
         }
+        latestTag = tags.first(where: { $0.epc == epc })
+        statusSummary = "Read tag \(epc)"
     }
 
     private func resetConnectionState() {
@@ -151,6 +289,35 @@ final class BLEManager: NSObject, ObservableObject {
         commandCharacteristic = nil
         eventsCharacteristic = nil
         statusCharacteristic = nil
+    }
+
+    private func reconnectSoon() {
+        guard isAutoConnectEnabled else {
+            return
+        }
+
+        connectionState = .reconnecting
+        statusSummary = "Connection lost. Reconnecting..."
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            Task { @MainActor in
+                self?.beginScan(connectionState: .reconnecting, message: "Reconnecting to RFID Tools ESP32")
+            }
+        }
+    }
+
+    private func loadSavedTags() {
+        guard let data = UserDefaults.standard.data(forKey: savedTagsKey),
+              let decoded = try? JSONDecoder().decode([SavedTag].self, from: data) else {
+            return
+        }
+        savedTags = decoded
+    }
+
+    private func persistSavedTags() {
+        guard let data = try? JSONEncoder().encode(savedTags) else {
+            return
+        }
+        UserDefaults.standard.set(data, forKey: savedTagsKey)
     }
 
     private func log(_ direction: DiagnosticEntry.Direction, _ message: String) {
@@ -170,14 +337,20 @@ extension BLEManager: CBCentralManagerDelegate {
                     connectionState = .disconnected
                 }
                 log(.ble, "Bluetooth powered on")
+                if isAutoConnectEnabled {
+                    beginScan(connectionState: .scanning, message: "Looking for RFID Tools ESP32")
+                }
             case .poweredOff:
                 connectionState = .bluetoothUnavailable
+                statusSummary = "Bluetooth is off"
                 log(.ble, "Bluetooth powered off")
             case .unauthorized:
                 connectionState = .error("Bluetooth permission denied")
+                statusSummary = "Bluetooth permission denied"
                 log(.error, "Bluetooth permission denied")
             case .unsupported:
                 connectionState = .error("Bluetooth unsupported")
+                statusSummary = "Bluetooth is not supported on this device"
                 log(.error, "Bluetooth unsupported")
             case .resetting:
                 log(.ble, "Bluetooth resetting")
@@ -208,12 +381,17 @@ extension BLEManager: CBCentralManagerDelegate {
                 peripherals.append(item)
             }
             log(.ble, "Discovered \(name) RSSI \(RSSI)")
+
+            if isAutoConnectEnabled {
+                connect(to: item)
+            }
         }
     }
 
     nonisolated func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         Task { @MainActor in
             connectionState = .connected(peripheral.name ?? "RFID reader")
+            statusSummary = "Connected. Preparing reader..."
             log(.ble, "Connected")
             peripheral.discoverServices([serviceUUID])
         }
@@ -223,15 +401,20 @@ extension BLEManager: CBCentralManagerDelegate {
         Task { @MainActor in
             resetConnectionState()
             connectionState = .error(error?.localizedDescription ?? "Failed to connect")
+            statusSummary = "Could not connect. Retrying..."
             log(.error, "Connection failed: \(error?.localizedDescription ?? "unknown error")")
+            reconnectSoon()
         }
     }
 
     nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         Task { @MainActor in
             resetConnectionState()
+            isInventoryRunning = false
             connectionState = .disconnected
+            statusSummary = error == nil ? "Disconnected" : "Connection lost"
             log(.ble, "Disconnected\(error.map { ": \($0.localizedDescription)" } ?? "")")
+            reconnectSoon()
         }
     }
 }
@@ -283,6 +466,7 @@ extension BLEManager: CBPeripheralDelegate {
             if commandCharacteristic != nil {
                 send(.getInfo)
                 send(.status)
+                applyPower()
             }
         }
     }
