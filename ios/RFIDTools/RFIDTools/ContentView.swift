@@ -6,7 +6,7 @@ struct ContentView: View {
     @State private var customText = ""
     @State private var tagDisplayFormat: TagDisplayFormat = .hex
     @State private var selectedSavedTagID: UUID?
-    @State private var isShowingDiagnostics = false
+    @State private var isShowingSettings = false
 
     private var selectedSavedTag: SavedTag? {
         guard let selectedSavedTagID else {
@@ -22,8 +22,7 @@ struct ContentView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
-                        connectionSection
-                        powerSection
+                        statusSection
                         readSection
                         saveSection
                         writeSection
@@ -40,9 +39,9 @@ struct ContentView: View {
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .dynamicTypeSize(.medium)
-        .sheet(isPresented: $isShowingDiagnostics) {
+        .sheet(isPresented: $isShowingSettings) {
             NavigationStack {
-                DiagnosticsView()
+                SettingsView()
                     .environmentObject(bleManager)
             }
         }
@@ -57,16 +56,16 @@ struct ContentView: View {
             Spacer()
 
             Button {
-                isShowingDiagnostics = true
+                isShowingSettings = true
             } label: {
-                Image(systemName: "waveform.path.ecg")
+                Image(systemName: "gearshape")
                     .font(.body.weight(.semibold))
                     .frame(width: 36, height: 36)
                     .background(Color(.secondarySystemGroupedBackground))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Diagnostics")
+            .accessibilityLabel("Settings")
         }
         .padding(.horizontal, 14)
         .padding(.top, 8)
@@ -74,93 +73,19 @@ struct ContentView: View {
         .background(Color(.systemGroupedBackground))
     }
 
-    private var connectionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Label(bleManager.connectionState.label, systemImage: connectionIcon)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(connectionColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-
-                Spacer()
-
-                Toggle("Auto-connect", isOn: Binding(
-                    get: { bleManager.isAutoConnectEnabled },
-                    set: { enabled in
-                        if enabled {
-                            bleManager.isAutoConnectEnabled = true
-                            bleManager.rescan()
-                        } else {
-                            bleManager.stopScan()
-                        }
-                    }
-                ))
-                .labelsHidden()
-            }
-
-            Text(bleManager.statusSummary)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    private var statusSection: some View {
+        HStack(spacing: 8) {
+            Label(connectionStatusText(for: bleManager.connectionState), systemImage: connectionIcon(for: bleManager.connectionState))
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(connectionColor(for: bleManager.connectionState))
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
 
-            HStack(spacing: 10) {
-                Button {
-                    bleManager.rescan()
-                } label: {
-                    Label("Find", systemImage: "antenna.radiowaves.left.and.right")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+            Spacer()
 
-                Button {
-                    bleManager.disconnect()
-                } label: {
-                    Label("Disconnect", systemImage: "xmark.circle")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-            .labelStyle(.titleAndIcon)
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-        }
-        .sectionStyle()
-    }
-
-    private var powerSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("Power", systemImage: "bolt.fill")
-                    .font(.footnote.weight(.semibold))
-                Spacer()
-                Text("\(bleManager.selectedPowerDbm) dBm")
-                    .font(.footnote.weight(.semibold).monospacedDigit())
-            }
-
-            HStack(spacing: 10) {
-                Slider(
-                    value: Binding(
-                        get: { Double(bleManager.selectedPowerDbm) },
-                        set: { bleManager.selectedPowerDbm = Int($0.rounded()) }
-                    ),
-                    in: 0...26,
-                    step: 1
-                )
-
-                Button {
-                    bleManager.applyPower()
-                } label: {
-                    Image(systemName: "checkmark")
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityLabel("Set Power")
+            if bleManager.isInventoryRunning {
+                Text("Reading")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
         }
         .sectionStyle()
@@ -366,29 +291,114 @@ struct ContentView: View {
         .sectionStyle()
     }
 
-    private var connectionIcon: String {
-        switch bleManager.connectionState {
-        case .connected:
-            return "checkmark.circle.fill"
-        case .scanning, .connecting, .reconnecting:
-            return "arrow.triangle.2.circlepath"
-        case .bluetoothUnavailable, .error:
-            return "exclamationmark.triangle.fill"
-        case .disconnected:
-            return "circle"
-        }
-    }
+}
 
-    private var connectionColor: Color {
-        switch bleManager.connectionState {
-        case .connected:
-            return .green
-        case .bluetoothUnavailable, .error:
-            return .red
-        case .scanning, .connecting, .reconnecting:
-            return .orange
-        case .disconnected:
-            return .secondary
+private struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var bleManager: BLEManager
+    @State private var isShowingDiagnostics = false
+
+    var body: some View {
+        List {
+            Section {
+                HStack {
+                    Label(connectionStatusText(for: bleManager.connectionState), systemImage: connectionIcon(for: bleManager.connectionState))
+                        .foregroundStyle(connectionColor(for: bleManager.connectionState))
+                    Spacer()
+                }
+
+                Text(bleManager.statusSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Auto-connect", isOn: Binding(
+                    get: { bleManager.isAutoConnectEnabled },
+                    set: { enabled in
+                        if enabled {
+                            bleManager.isAutoConnectEnabled = true
+                            bleManager.rescan()
+                        } else {
+                            bleManager.stopScan()
+                        }
+                    }
+                ))
+
+                HStack(spacing: 10) {
+                    Button {
+                        bleManager.rescan()
+                    } label: {
+                        Label("Find", systemImage: "antenna.radiowaves.left.and.right")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button {
+                        bleManager.disconnect()
+                    } label: {
+                        Label("Disconnect", systemImage: "xmark.circle")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            }
+
+            Section {
+                HStack {
+                    Label("Power", systemImage: "bolt.fill")
+                    Spacer()
+                    Text("\(bleManager.selectedPowerDbm) dBm")
+                        .font(.body.weight(.semibold).monospacedDigit())
+                }
+
+                HStack(spacing: 10) {
+                    Slider(
+                        value: Binding(
+                            get: { Double(bleManager.selectedPowerDbm) },
+                            set: { bleManager.selectedPowerDbm = Int($0.rounded()) }
+                        ),
+                        in: 0...26,
+                        step: 1
+                    )
+
+                    Button {
+                        bleManager.applyPower()
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityLabel("Set Power")
+                }
+            }
+
+            Section {
+                Button {
+                    isShowingDiagnostics = true
+                } label: {
+                    Label("Diagnostics", systemImage: "waveform.path.ecg")
+                }
+            }
+        }
+        .navigationTitle("Settings")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                    dismiss()
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingDiagnostics) {
+            NavigationStack {
+                DiagnosticsView()
+                    .environmentObject(bleManager)
+            }
         }
     }
 }
@@ -410,6 +420,51 @@ private struct DiagnosticsView: View {
             }
         }
         .navigationTitle("Diagnostics")
+    }
+}
+
+private func connectionStatusText(for state: ReaderConnectionState) -> String {
+    switch state {
+    case .bluetoothUnavailable:
+        return "Bluetooth off"
+    case .disconnected:
+        return "Disconnected"
+    case .reconnecting:
+        return "Reconnecting"
+    case .scanning:
+        return "Searching"
+    case .connecting:
+        return "Connecting"
+    case .connected:
+        return "Connected"
+    case .error:
+        return "Error"
+    }
+}
+
+private func connectionIcon(for state: ReaderConnectionState) -> String {
+    switch state {
+    case .connected:
+        return "checkmark.circle.fill"
+    case .scanning, .connecting, .reconnecting:
+        return "arrow.triangle.2.circlepath"
+    case .bluetoothUnavailable, .error:
+        return "exclamationmark.triangle.fill"
+    case .disconnected:
+        return "circle"
+    }
+}
+
+private func connectionColor(for state: ReaderConnectionState) -> Color {
+    switch state {
+    case .connected:
+        return .green
+    case .bluetoothUnavailable, .error:
+        return .red
+    case .scanning, .connecting, .reconnecting:
+        return .orange
+    case .disconnected:
+        return .secondary
     }
 }
 
