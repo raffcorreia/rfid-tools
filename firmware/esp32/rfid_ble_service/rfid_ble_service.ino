@@ -61,7 +61,7 @@ static int currentPowerCentiDbm = -1;
 static int currentRegion = -1;
 
 enum class AppCommand {
-  Hello,
+  GetInfo,
   Status,
   StartInventory,
   StopInventory,
@@ -238,8 +238,8 @@ static AppCommand parseCommand(const String &message) {
     return AppCommand::Unknown;
   }
 
-  if (command == "hello") {
-    return AppCommand::Hello;
+  if (command == "getInfo") {
+    return AppCommand::GetInfo;
   }
   if (command == "status") {
     return AppCommand::Status;
@@ -544,9 +544,9 @@ static void handleCommand(const String &message) {
 
   const AppCommand command = parseCommand(message);
   switch (command) {
-    case AppCommand::Hello:
+    case AppCommand::GetInfo:
       notifyEvent(String("{\"v\":1,\"id\":") + id +
-                  ",\"evt\":\"hello\",\"name\":\"" + kDeviceName +
+                  ",\"evt\":\"info\",\"name\":\"" + kDeviceName +
                   "\",\"fw\":\"" + kFirmwareVersion +
                   "\",\"caps\":[\"inventory\",\"power\",\"region\"]}");
       break;

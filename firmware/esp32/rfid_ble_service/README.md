@@ -10,7 +10,7 @@ available while BLE service work progresses.
 - Advertises as `RFID Tools ESP32`.
 - Exposes the documented RFID BLE service UUID.
 - Provides command, event notification, and status characteristics.
-- Handles `hello` and `status` commands.
+- Handles `getInfo` and `status` commands.
 - Starts and stops YRM100 continuous inventory.
 - Emits `tagSeen` events from YRM100 inventory notices.
 - Gets/sets TX power.
@@ -31,7 +31,7 @@ available while BLE service work progresses.
 Write UTF-8 JSON to the command characteristic:
 
 ```json
-{"v":1,"id":1,"cmd":"hello"}
+{"v":1,"id":1,"cmd":"getInfo"}
 {"v":1,"id":2,"cmd":"status"}
 {"v":1,"id":3,"cmd":"startInventory"}
 {"v":1,"id":4,"cmd":"stopInventory"}
