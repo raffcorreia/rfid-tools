@@ -278,7 +278,6 @@ final class BLEManager: NSObject, ObservableObject {
         } else if event == "status" {
             updateStatusSummary(from: object)
         } else if event == "tagSeen", let epc = object["epc"] as? String {
-            log(.firmware, "Tag seen \(epc)")
             upsertTag(from: object, epc: epc)
         } else if event == "commandAck" {
             log(.firmware, "Command acknowledged")
