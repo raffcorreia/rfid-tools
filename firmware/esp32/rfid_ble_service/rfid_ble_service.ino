@@ -38,7 +38,7 @@
 #endif
 
 static constexpr const char *kDeviceName = "RFID Tools ESP32";
-static constexpr const char *kFirmwareVersion = "0.1.4";
+static constexpr const char *kFirmwareVersion = "0.1.5";
 static constexpr const char *kServiceUuid = "63802432-69FC-406D-A538-FE33CEF32AEF";
 static constexpr const char *kCommandUuid = "DE0D7201-CC2B-46D9-8F92-564A209C37EF";
 static constexpr const char *kEventsUuid = "456F5CDA-632A-4541-A2A5-6FAEC234075E";
@@ -683,7 +683,6 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
       }
       Serial.print("[YRM RX] unsolicited inventory tag ");
       Serial.println(bytesToHex(tag.epc));
-      return;
     }
 
     lastInventoryEpc = tag.epc;

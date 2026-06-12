@@ -187,9 +187,8 @@ struct ContentView: View {
     private func tagValueRow(_ tag: TagRead) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Text(tag.displayValue(format: tagDisplayFormat))
-                .font(.system(.subheadline, design: tagDisplayFormat == .hex ? .monospaced : .default))
+                .font(tagDisplayFormat == .hex ? .system(size: 14, design: .monospaced) : .system(size: 14))
                 .lineLimit(2)
-                .minimumScaleFactor(0.8)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
