@@ -28,6 +28,10 @@ final class BLEManager: NSObject, ObservableObject {
     private var eventsCharacteristic: CBCharacteristic?
     private var statusCharacteristic: CBCharacteristic?
     private var nextCommandID = 1
+    private var lastKnownPeripheral: CBPeripheral?
+    private var isUserDisconnecting = false
+    private var reconnectAttempt = 0
+    private var reconnectGeneration = 0
 
     override init() {
         super.init()
@@ -36,11 +40,14 @@ final class BLEManager: NSObject, ObservableObject {
     }
 
     func startScan() {
+        isUserDisconnecting = false
         isAutoConnectEnabled = true
         beginScan(connectionState: .scanning, message: "Looking for RFID Tools ESP32")
     }
 
     func rescan() {
+        isUserDisconnecting = false
+        isAutoConnectEnabled = true
         beginScan(connectionState: .scanning, message: "Looking for RFID Tools ESP32")
     }
 
@@ -52,6 +59,7 @@ final class BLEManager: NSObject, ObservableObject {
             return
         }
 
+        reconnectGeneration += 1
         peripherals.removeAll()
         discoveredPeripherals.removeAll()
         connectionState = nextState
@@ -62,6 +70,8 @@ final class BLEManager: NSObject, ObservableObject {
 
     func stopScan() {
         isAutoConnectEnabled = false
+        isUserDisconnecting = true
+        reconnectGeneration += 1
         central?.stopScan()
         if case .scanning = connectionState {
             connectionState = .disconnected
@@ -78,19 +88,25 @@ final class BLEManager: NSObject, ObservableObject {
             return
         }
 
+        isUserDisconnecting = false
+        reconnectGeneration += 1
         central?.stopScan()
         connectionState = .connecting(peripheral.name)
         statusSummary = "Connecting to \(peripheral.name)"
         log(.app, "Connecting to \(peripheral.name)")
         connectedPeripheral = cbPeripheral
+        lastKnownPeripheral = cbPeripheral
         cbPeripheral.delegate = self
         central?.connect(cbPeripheral)
     }
 
     func disconnect() {
         isAutoConnectEnabled = false
+        isUserDisconnecting = true
+        reconnectGeneration += 1
         isInventoryRunning = false
         guard let connectedPeripheral else {
+            resetConnectionState(keepLastKnownPeripheral: true)
             connectionState = .disconnected
             statusSummary = "Disconnected"
             return
@@ -208,6 +224,7 @@ final class BLEManager: NSObject, ObservableObject {
         guard let connectedPeripheral, let commandCharacteristic else {
             statusSummary = "Reader is not ready yet"
             log(.error, "Command characteristic is not ready")
+            reconnectIfNeeded(reason: "command characteristic missing")
             return
         }
 
@@ -321,7 +338,10 @@ final class BLEManager: NSObject, ObservableObject {
         statusSummary = "Read \(tags.count) unique tag\(tags.count == 1 ? "" : "s")"
     }
 
-    private func resetConnectionState() {
+    private func resetConnectionState(keepLastKnownPeripheral: Bool = true) {
+        if keepLastKnownPeripheral, lastKnownPeripheral == nil {
+            lastKnownPeripheral = connectedPeripheral
+        }
         connectedPeripheral = nil
         commandCharacteristic = nil
         eventsCharacteristic = nil
@@ -329,17 +349,60 @@ final class BLEManager: NSObject, ObservableObject {
     }
 
     private func reconnectSoon() {
-        guard isAutoConnectEnabled else {
+        reconnectIfNeeded(reason: "connection lost")
+    }
+
+    private func reconnectIfNeeded(reason: String) {
+        guard isAutoConnectEnabled, !isUserDisconnecting else {
+            return
+        }
+        if connectedPeripheral?.state == .connected, commandCharacteristic != nil, eventsCharacteristic != nil {
+            return
+        }
+        guard central?.state == .poweredOn else {
+            connectionState = .bluetoothUnavailable
+            statusSummary = "Turn on Bluetooth to reconnect"
+            return
+        }
+
+        reconnectAttempt += 1
+        reconnectGeneration += 1
+        let generation = reconnectGeneration
+        let delay: TimeInterval = reconnectAttempt == 1 ? 0.2 : min(Double(reconnectAttempt), 4.0)
+
+        connectionState = .reconnecting
+        statusSummary = "Reconnecting..."
+        log(.ble, "Reconnect scheduled after \(reason)")
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            Task { @MainActor in
+                self?.runReconnectAttempt(generation: generation)
+            }
+        }
+    }
+
+    private func runReconnectAttempt(generation: Int) {
+        guard generation == reconnectGeneration, isAutoConnectEnabled, !isUserDisconnecting else {
+            return
+        }
+        if connectedPeripheral?.state == .connected, commandCharacteristic != nil, eventsCharacteristic != nil {
+            return
+        }
+        guard central?.state == .poweredOn else {
+            connectionState = .bluetoothUnavailable
+            statusSummary = "Turn on Bluetooth to reconnect"
             return
         }
 
         connectionState = .reconnecting
-        statusSummary = "Connection lost. Reconnecting..."
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            Task { @MainActor in
-                self?.beginScan(connectionState: .reconnecting, message: "Reconnecting to RFID Tools ESP32")
-            }
+        statusSummary = "Reconnecting..."
+        if let lastKnownPeripheral, lastKnownPeripheral.state != .connected {
+            connectedPeripheral = lastKnownPeripheral
+            lastKnownPeripheral.delegate = self
+            central?.connect(lastKnownPeripheral)
+            log(.ble, "Trying last known peripheral")
         }
+        central?.scanForPeripherals(withServices: [serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        reconnectIfNeeded(reason: "retry timer")
     }
 
     private func loadSavedTags() {
@@ -375,9 +438,11 @@ extension BLEManager: CBCentralManagerDelegate {
                 }
                 log(.ble, "Bluetooth powered on")
                 if isAutoConnectEnabled {
-                    beginScan(connectionState: .scanning, message: "Looking for RFID Tools ESP32")
+                    reconnectIfNeeded(reason: "Bluetooth powered on")
                 }
             case .poweredOff:
+                resetConnectionState(keepLastKnownPeripheral: true)
+                isInventoryRunning = false
                 connectionState = .bluetoothUnavailable
                 statusSummary = "Bluetooth is off"
                 log(.ble, "Bluetooth powered off")
@@ -410,6 +475,7 @@ extension BLEManager: CBCentralManagerDelegate {
                 ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
                 ?? "RFID reader"
             discoveredPeripherals[peripheral.identifier] = peripheral
+            lastKnownPeripheral = peripheral
 
             let item = ReaderPeripheral(id: peripheral.identifier, name: name, rssi: RSSI.intValue)
             if let index = peripherals.firstIndex(where: { $0.id == item.id }) {
@@ -427,7 +493,11 @@ extension BLEManager: CBCentralManagerDelegate {
 
     nonisolated func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         Task { @MainActor in
-            connectionState = .connected(peripheral.name ?? "RFID reader")
+            reconnectAttempt = 0
+            reconnectGeneration += 1
+            connectedPeripheral = peripheral
+            lastKnownPeripheral = peripheral
+            connectionState = .connecting(peripheral.name ?? "RFID reader")
             statusSummary = "Connected. Preparing reader..."
             log(.ble, "Connected")
             peripheral.discoverServices([serviceUUID])
@@ -436,8 +506,8 @@ extension BLEManager: CBCentralManagerDelegate {
 
     nonisolated func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         Task { @MainActor in
-            resetConnectionState()
-            connectionState = .error(error?.localizedDescription ?? "Failed to connect")
+            resetConnectionState(keepLastKnownPeripheral: true)
+            connectionState = .reconnecting
             statusSummary = "Could not connect. Retrying..."
             log(.error, "Connection failed: \(error?.localizedDescription ?? "unknown error")")
             reconnectSoon()
@@ -446,10 +516,15 @@ extension BLEManager: CBCentralManagerDelegate {
 
     nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         Task { @MainActor in
-            resetConnectionState()
+            resetConnectionState(keepLastKnownPeripheral: true)
             isInventoryRunning = false
-            connectionState = .disconnected
-            statusSummary = error == nil ? "Disconnected" : "Connection lost"
+            if isAutoConnectEnabled, !isUserDisconnecting {
+                connectionState = .reconnecting
+                statusSummary = "Connection lost. Reconnecting..."
+            } else {
+                connectionState = .disconnected
+                statusSummary = error == nil ? "Disconnected" : "Connection lost"
+            }
             log(.ble, "Disconnected\(error.map { ": \($0.localizedDescription)" } ?? "")")
             reconnectSoon()
         }
@@ -461,11 +536,15 @@ extension BLEManager: CBPeripheralDelegate {
         Task { @MainActor in
             if let error {
                 log(.error, "Service discovery failed: \(error.localizedDescription)")
+                central?.cancelPeripheralConnection(peripheral)
+                reconnectIfNeeded(reason: "service discovery failed")
                 return
             }
 
             guard let service = peripheral.services?.first(where: { $0.uuid == serviceUUID }) else {
                 log(.error, "RFID service not found")
+                central?.cancelPeripheralConnection(peripheral)
+                reconnectIfNeeded(reason: "service missing")
                 return
             }
 
@@ -478,6 +557,8 @@ extension BLEManager: CBPeripheralDelegate {
         Task { @MainActor in
             if let error {
                 log(.error, "Characteristic discovery failed: \(error.localizedDescription)")
+                central?.cancelPeripheralConnection(peripheral)
+                reconnectIfNeeded(reason: "characteristic discovery failed")
                 return
             }
 
@@ -500,10 +581,18 @@ extension BLEManager: CBPeripheralDelegate {
                 }
             }
 
-            if commandCharacteristic != nil {
+            if commandCharacteristic != nil, eventsCharacteristic != nil {
+                reconnectAttempt = 0
+                reconnectGeneration += 1
+                connectionState = .connected(peripheral.name ?? "RFID reader")
+                statusSummary = "Connected"
                 send(.getInfo)
                 send(.status)
                 applyPower()
+            } else {
+                log(.error, "Required characteristics missing")
+                central?.cancelPeripheralConnection(peripheral)
+                reconnectIfNeeded(reason: "required characteristics missing")
             }
         }
     }
@@ -512,6 +601,7 @@ extension BLEManager: CBPeripheralDelegate {
         Task { @MainActor in
             if let error {
                 log(.error, "Characteristic update failed: \(error.localizedDescription)")
+                reconnectIfNeeded(reason: "characteristic update failed")
                 return
             }
 
@@ -529,6 +619,7 @@ extension BLEManager: CBPeripheralDelegate {
         Task { @MainActor in
             if let error {
                 log(.error, "Command write failed: \(error.localizedDescription)")
+                reconnectIfNeeded(reason: "command write failed")
             } else {
                 log(.ble, "Command write acknowledged")
             }

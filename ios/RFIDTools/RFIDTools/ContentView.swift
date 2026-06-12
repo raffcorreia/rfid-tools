@@ -430,9 +430,9 @@ private func connectionStatusText(for state: ReaderConnectionState) -> String {
     case .disconnected:
         return "Disconnected"
     case .reconnecting:
-        return "Reconnecting"
+        return "Disconnected"
     case .scanning:
-        return "Searching"
+        return "Disconnected"
     case .connecting:
         return "Connecting"
     case .connected:
