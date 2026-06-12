@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @EnvironmentObject private var bleManager: BLEManager
@@ -7,6 +8,7 @@ struct ContentView: View {
     @State private var tagDisplayFormat: TagDisplayFormat = .hex
     @State private var selectedSavedTagID: UUID?
     @State private var isShowingSettings = false
+    @State private var copiedTagID: String?
 
     private var selectedSavedTag: SavedTag? {
         guard let selectedSavedTagID else {
@@ -109,6 +111,8 @@ struct ContentView: View {
             detectedTagsView
 
             HStack(spacing: 10) {
+                Spacer()
+
                 Button {
                     bleManager.startInventory()
                 } label: {
@@ -117,16 +121,6 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-
-                Button {
-                    bleManager.stopInventory()
-                } label: {
-                    Label("Stop", systemImage: "stop.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
                 .controlSize(.small)
             }
             .lineLimit(1)
@@ -146,12 +140,24 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(bleManager.tags.prefix(8)) { tag in
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(tag.displayValue(format: tagDisplayFormat))
-                            .font(.system(.subheadline, design: tagDisplayFormat == .hex ? .monospaced : .default))
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.8)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(alignment: .top, spacing: 8) {
+                            Text(tag.displayValue(format: tagDisplayFormat))
+                                .font(.system(.subheadline, design: tagDisplayFormat == .hex ? .monospaced : .default))
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Button {
+                                copyTag(tag)
+                            } label: {
+                                Image(systemName: copiedTagID == tag.id ? "checkmark" : "doc.on.doc")
+                                    .font(.caption.weight(.semibold))
+                                    .frame(width: 30, height: 30)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel("Copy tag")
+                        }
 
                         HStack(spacing: 12) {
                             Text("Seen \(tag.seenCount)")
@@ -173,6 +179,17 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    private func copyTag(_ tag: TagRead) {
+        UIPasteboard.general.string = tag.epc
+        copiedTagID = tag.id
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            if copiedTagID == tag.id {
+                copiedTagID = nil
+            }
         }
     }
 

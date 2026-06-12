@@ -11,7 +11,7 @@ final class BLEManager: NSObject, ObservableObject {
     @Published private(set) var statusSummary = "Searching for the reader when Bluetooth is ready"
     @Published private(set) var latestTag: TagRead?
     @Published private(set) var isInventoryRunning = false
-    @Published private(set) var lastWriteMessage = "Read the target tag, stop reading, then write or apply a saved tag."
+    @Published private(set) var lastWriteMessage = "Read the target tag, then write or apply a saved tag."
     @Published var isAutoConnectEnabled = true
     @Published var selectedPowerDbm = 15
 
@@ -124,12 +124,6 @@ final class BLEManager: NSObject, ObservableObject {
         send(.startInventory)
     }
 
-    func stopInventory() {
-        isInventoryRunning = false
-        statusSummary = latestTag == nil ? "Scan stopped" : "Scan stopped with \(tags.count) tag\(tags.count == 1 ? "" : "s") found"
-        send(.stopInventory)
-    }
-
     func applyPower() {
         sendCommand(.setPower, values: ["dbm": selectedPowerDbm])
         statusSummary = "Setting reader power to \(selectedPowerDbm) dBm"
@@ -197,7 +191,7 @@ final class BLEManager: NSObject, ObservableObject {
             payload["region"] = "US"
         case .writeEpc:
             payload["epc"] = values["epc"] ?? ""
-        case .getInfo, .status, .getPower, .getRegion, .startInventory, .stopInventory:
+        case .getInfo, .status, .getPower, .getRegion, .startInventory:
             break
         }
 
@@ -212,7 +206,7 @@ final class BLEManager: NSObject, ObservableObject {
         }
 
         if isInventoryRunning {
-            lastWriteMessage = "Stop reading before writing"
+            lastWriteMessage = "Wait for reading to finish"
             return
         }
 
