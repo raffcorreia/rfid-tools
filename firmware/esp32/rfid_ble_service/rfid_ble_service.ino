@@ -59,6 +59,7 @@ static bool scanActive = false;
 static bool readerReady = false;
 static int currentPowerCentiDbm = -1;
 static int currentRegion = -1;
+static std::vector<uint8_t> lastInventoryEpc;
 
 enum class AppCommand {
   GetInfo,
@@ -69,6 +70,7 @@ enum class AppCommand {
   SetPower,
   GetRegion,
   SetRegion,
+  WriteEpc,
   Unknown,
 };
 
@@ -80,6 +82,10 @@ enum class PendingAction {
   SetPower,
   GetRegion,
   SetRegion,
+  WriteSelectMode,
+  WriteSelectTag,
+  WriteEpc,
+  WriteClearSelectMode,
 };
 
 struct PendingCommand {
@@ -90,6 +96,15 @@ struct PendingCommand {
 };
 
 static PendingCommand pending;
+
+struct WriteContext {
+  bool active = false;
+  int id = 0;
+  std::vector<uint8_t> targetEpc;
+  std::vector<uint8_t> newEpc;
+};
+
+static WriteContext writeContext;
 
 static const char *pendingActionName(PendingAction action) {
   switch (action) {
@@ -107,6 +122,14 @@ static const char *pendingActionName(PendingAction action) {
       return "getRegion";
     case PendingAction::SetRegion:
       return "setRegion";
+    case PendingAction::WriteSelectMode:
+      return "writeSelectMode";
+    case PendingAction::WriteSelectTag:
+      return "writeSelectTag";
+    case PendingAction::WriteEpc:
+      return "writeEpc";
+    case PendingAction::WriteClearSelectMode:
+      return "writeClearSelectMode";
   }
   return "unknown";
 }
@@ -120,6 +143,48 @@ static String bytesToHex(const std::vector<uint8_t> &bytes) {
     out += kHex[value & 0x0F];
   }
   return out;
+}
+
+static int hexValue(char value) {
+  if (value >= '0' && value <= '9') {
+    return value - '0';
+  }
+  if (value >= 'a' && value <= 'f') {
+    return value - 'a' + 10;
+  }
+  if (value >= 'A' && value <= 'F') {
+    return value - 'A' + 10;
+  }
+  return -1;
+}
+
+static bool parseHexBytes(const String &text, std::vector<uint8_t> &bytes) {
+  String cleaned;
+  cleaned.reserve(text.length());
+  for (size_t i = 0; i < text.length(); i++) {
+    const char value = text[i];
+    if (!isspace(value) && value != ':' && value != '-') {
+      cleaned += value;
+    }
+  }
+
+  if (cleaned.length() == 0 || (cleaned.length() % 2) != 0) {
+    return false;
+  }
+
+  bytes.clear();
+  bytes.reserve(cleaned.length() / 2);
+  for (size_t i = 0; i < cleaned.length(); i += 2) {
+    const int high = hexValue(cleaned[i]);
+    const int low = hexValue(cleaned[i + 1]);
+    if (high < 0 || low < 0) {
+      bytes.clear();
+      return false;
+    }
+    bytes.push_back(static_cast<uint8_t>((high << 4) | low));
+  }
+
+  return true;
 }
 
 static int parseId(const String &message) {
@@ -262,6 +327,9 @@ static AppCommand parseCommand(const String &message) {
   if (command == "setRegion") {
     return AppCommand::SetRegion;
   }
+  if (command == "writeEpc") {
+    return AppCommand::WriteEpc;
+  }
   return AppCommand::Unknown;
 }
 
@@ -283,6 +351,14 @@ static bool parseRegionValue(const String &message, uint8_t &region) {
 
   region = static_cast<uint8_t>(numericRegion);
   return true;
+}
+
+static bool parseEpcBytes(const String &message, std::vector<uint8_t> &epc) {
+  String value;
+  if (!parseStringField(message, "epc", value)) {
+    return false;
+  }
+  return parseHexBytes(value, epc);
 }
 
 static bool parsePowerCentiDbm(const String &message, int16_t &centiDbm) {
@@ -314,7 +390,7 @@ static String statusJson(int id = -1) {
          ",\"region\":" + regionValue +
          ",\"powerDbm\":" + powerValue +
          ",\"fw\":\"" + kFirmwareVersion +
-         "\",\"caps\":[\"inventory\",\"power\",\"region\"]}";
+         "\",\"caps\":[\"inventory\",\"power\",\"region\",\"writeEpc\"]}";
 }
 
 static void updateStatusCharacteristic() {
@@ -349,8 +425,19 @@ static void clearPending() {
   pending = PendingCommand{};
 }
 
+static void clearWriteContext() {
+  writeContext = WriteContext{};
+}
+
 static bool hasPending() {
   return pending.action != PendingAction::None;
+}
+
+static bool isWriteAction(PendingAction action) {
+  return action == PendingAction::WriteSelectMode ||
+         action == PendingAction::WriteSelectTag ||
+         action == PendingAction::WriteEpc ||
+         action == PendingAction::WriteClearSelectMode;
 }
 
 static bool sendYrmCommand(int id, PendingAction action, uint8_t yrmCommand, const std::vector<uint8_t> &frame) {
@@ -377,6 +464,47 @@ static bool sendYrmCommand(int id, PendingAction action, uint8_t yrmCommand, con
   pending.yrmCommand = yrmCommand;
   pending.sentAtMs = millis();
   return true;
+}
+
+static bool sendWriteStep(PendingAction action, uint8_t yrmCommand, const std::vector<uint8_t> &frame) {
+  return sendYrmCommand(writeContext.id, action, yrmCommand, frame);
+}
+
+static bool beginWriteEpc(int id, const std::vector<uint8_t> &newEpc) {
+  if (hasPending()) {
+    notifyError(id, "busy", "firmware", "Another reader command is in progress");
+    return false;
+  }
+
+  if (scanActive) {
+    notifyError(id, "scan_active", "firmware", "Stop reading before writing a tag");
+    return false;
+  }
+
+  if (lastInventoryEpc.empty()) {
+    notifyError(id, "no_target_tag", "firmware", "Read the target tag before writing");
+    return false;
+  }
+
+  if (newEpc.empty() || (newEpc.size() % 2) != 0 || newEpc.size() > 64) {
+    notifyError(id, "invalid_argument", "ble", "writeEpc requires an even-length EPC hex value up to 64 bytes");
+    return false;
+  }
+
+  if (newEpc.size() != lastInventoryEpc.size()) {
+    notifyError(id, "length_mismatch", "firmware", "New EPC must match the target tag EPC byte length");
+    return false;
+  }
+
+  writeContext.active = true;
+  writeContext.id = id;
+  writeContext.targetEpc = lastInventoryEpc;
+  writeContext.newEpc = newEpc;
+
+  return sendWriteStep(
+      PendingAction::WriteSelectMode,
+      static_cast<uint8_t>(rfid::yrm100::Command::SetSelectMode),
+      rfid::yrm100::buildSetSelectMode(rfid::yrm100::SelectMode::BeforeTagOperations));
 }
 
 static bool sendStopInventoryCommand(int id) {
@@ -410,6 +538,7 @@ static void stopInventoryForDisconnect() {
   YrmSerial.flush();
   scanActive = false;
   clearPending();
+  clearWriteContext();
 }
 
 static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
@@ -417,6 +546,7 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
 
   rfid::yrm100::InventoryTag tag;
   if (rfid::yrm100::decodeInventoryTag(frame, tag)) {
+    lastInventoryEpc = tag.epc;
     notifyEvent(String("{\"v\":1,\"id\":null,\"evt\":\"tagSeen\",\"epc\":\"") +
                 bytesToHex(tag.epc) +
                 "\",\"pc\":\"" + String(tag.pc, HEX) +
@@ -428,6 +558,9 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
   rfid::yrm100::ErrorResponse error;
   if (rfid::yrm100::decodeErrorResponse(frame, error)) {
     notifyError(pending.id, "reader_error", "yrm100", (String("YRM100 error 0x") + String(error.code, HEX)).c_str());
+    if (isWriteAction(pending.action)) {
+      clearWriteContext();
+    }
     clearPending();
     updateStatusCharacteristic();
     return;
@@ -494,6 +627,54 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
         clearPending();
       }
       break;
+    case PendingAction::WriteSelectMode:
+      if (rfid::yrm100::decodeCommandStatus(frame, pending.yrmCommand, status) && status.status == 0x00) {
+        const int id = pending.id;
+        clearPending();
+        if (!sendWriteStep(PendingAction::WriteSelectTag,
+                           static_cast<uint8_t>(rfid::yrm100::Command::SetSelect),
+                           rfid::yrm100::buildSetSelectByEpc(writeContext.targetEpc))) {
+          clearWriteContext();
+          notifyError(id, "write_failed", "firmware", "Could not select the target tag");
+        }
+      }
+      break;
+    case PendingAction::WriteSelectTag:
+      if (rfid::yrm100::decodeCommandStatus(frame, pending.yrmCommand, status) && status.status == 0x00) {
+        const int id = pending.id;
+        clearPending();
+        if (!sendWriteStep(PendingAction::WriteEpc,
+                           static_cast<uint8_t>(rfid::yrm100::Command::WriteMemory),
+                           rfid::yrm100::buildWriteEpc(writeContext.newEpc))) {
+          clearWriteContext();
+          notifyError(id, "write_failed", "firmware", "Could not build the write command");
+        }
+      }
+      break;
+    case PendingAction::WriteEpc:
+      if (rfid::yrm100::decodeCommandStatus(frame, pending.yrmCommand, status) && status.status == 0x00) {
+        lastInventoryEpc = writeContext.newEpc;
+        const int id = pending.id;
+        clearPending();
+        if (!sendWriteStep(PendingAction::WriteClearSelectMode,
+                           static_cast<uint8_t>(rfid::yrm100::Command::SetSelectMode),
+                           rfid::yrm100::buildSetSelectMode(rfid::yrm100::SelectMode::Disabled))) {
+          clearWriteContext();
+          notifyEvent(String("{\"v\":1,\"id\":") + id +
+                      ",\"evt\":\"result\",\"cmd\":\"writeEpc\",\"ok\":true,\"epc\":\"" +
+                      bytesToHex(lastInventoryEpc) + "\"}");
+        }
+      }
+      break;
+    case PendingAction::WriteClearSelectMode:
+      if (rfid::yrm100::decodeCommandStatus(frame, pending.yrmCommand, status) && status.status == 0x00) {
+        notifyEvent(String("{\"v\":1,\"id\":") + pending.id +
+                    ",\"evt\":\"result\",\"cmd\":\"writeEpc\",\"ok\":true,\"epc\":\"" +
+                    bytesToHex(writeContext.newEpc) + "\"}");
+        clearWriteContext();
+        clearPending();
+      }
+      break;
     case PendingAction::None:
       break;
   }
@@ -512,6 +693,9 @@ static void pollYrmSerial() {
       case rfid::yrm100::ParseStatus::BadChecksum:
       case rfid::yrm100::ParseStatus::BadEnd:
         notifyError(pending.id, "parser_error", "yrm100", "Invalid YRM100 frame");
+        if (isWriteAction(pending.action)) {
+          clearWriteContext();
+        }
         clearPending();
         updateStatusCharacteristic();
         break;
@@ -532,6 +716,9 @@ static void checkCommandTimeout() {
   }
 
   notifyError(pending.id, "reader_timeout", "yrm100", "Reader did not respond");
+  if (isWriteAction(pending.action)) {
+    clearWriteContext();
+  }
   clearPending();
   updateStatusCharacteristic();
 }
@@ -548,7 +735,7 @@ static void handleCommand(const String &message) {
       notifyEvent(String("{\"v\":1,\"id\":") + id +
                   ",\"evt\":\"info\",\"name\":\"" + kDeviceName +
                   "\",\"fw\":\"" + kFirmwareVersion +
-                  "\",\"caps\":[\"inventory\",\"power\",\"region\"]}");
+                  "\",\"caps\":[\"inventory\",\"power\",\"region\",\"writeEpc\"]}");
       break;
     case AppCommand::Status:
       notifyEvent(statusJson(id));
@@ -594,6 +781,16 @@ static void handleCommand(const String &message) {
         currentRegion = region;
         sendYrmCommand(id, PendingAction::SetRegion, static_cast<uint8_t>(rfid::yrm100::Command::SetRegion),
                        rfid::yrm100::buildSetRegion(region));
+      }
+      break;
+    case AppCommand::WriteEpc:
+      {
+        std::vector<uint8_t> epc;
+        if (!parseEpcBytes(message, epc)) {
+          notifyError(id, "invalid_argument", "ble", "writeEpc requires an EPC hex string");
+          break;
+        }
+        beginWriteEpc(id, epc);
       }
       break;
     case AppCommand::Unknown:

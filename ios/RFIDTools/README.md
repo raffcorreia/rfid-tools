@@ -16,14 +16,17 @@ The app communicates with the ESP32 through the documented BLE protocol. It shou
 
 ## Current Phase Scope
 
-`PHASE-004` starts with a SwiftUI/CoreBluetooth app shell:
+`PHASE-004` provides the SwiftUI/CoreBluetooth workflow app:
 
-- scan for the documented RFID BLE service
-- connect and disconnect from the ESP32 peripheral
+- auto-connect to the documented RFID BLE service
+- reconnect after connection loss
 - discover command, events, and status characteristics
 - subscribe to event/status updates
-- send development commands such as `getInfo`, `status`, `startInventory`, and `stopInventory`
-- display live `tagSeen` events and a diagnostics log
+- read tags and display EPC as text or hex
+- save named tags locally
+- apply a saved tag EPC to the current target tag
+- write typed text through the same EPC write command
+- set reader power with a slider
 
 Build from this directory with Xcode, or from the repository root with:
 

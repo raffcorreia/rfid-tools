@@ -11,7 +11,7 @@ final class BLEManager: NSObject, ObservableObject {
     @Published private(set) var statusSummary = "Searching for the reader when Bluetooth is ready"
     @Published private(set) var latestTag: TagRead?
     @Published private(set) var isInventoryRunning = false
-    @Published private(set) var lastWriteMessage = "Writing tags needs firmware support for a write command."
+    @Published private(set) var lastWriteMessage = "Read the target tag, stop reading, then write or apply a saved tag."
     @Published var isAutoConnectEnabled = true
     @Published var selectedPowerDbm = 15
 
@@ -179,6 +179,8 @@ final class BLEManager: NSObject, ObservableObject {
             payload["dbm"] = values["dbm"] ?? selectedPowerDbm
         case .setRegion:
             payload["region"] = "US"
+        case .writeEpc:
+            payload["epc"] = values["epc"] ?? ""
         case .getInfo, .status, .getPower, .getRegion, .startInventory, .stopInventory:
             break
         }
@@ -193,8 +195,13 @@ final class BLEManager: NSObject, ObservableObject {
             return
         }
 
-        lastWriteMessage = "Write is ready in the app, but this firmware does not expose a write command yet."
-        log(.app, "Write requested for \(label); firmware write command unavailable")
+        if isInventoryRunning {
+            lastWriteMessage = "Stop reading before writing"
+            return
+        }
+
+        sendCommand(.writeEpc, values: ["epc": epc])
+        lastWriteMessage = "Writing \(label)..."
     }
 
     private func send(_ payload: [String: Any]) {
@@ -237,11 +244,32 @@ final class BLEManager: NSObject, ObservableObject {
             upsertTag(from: object, epc: epc)
         } else if event == "commandAck" {
             log(.firmware, "Command acknowledged")
+        } else if event == "result" {
+            handleCommandResult(object)
         } else if event == "error" {
             let message = object["message"] as? String ?? "Reader reported an error"
             statusSummary = message
+            lastWriteMessage = message
             log(.error, message)
         }
+    }
+
+    private func handleCommandResult(_ object: [String: Any]) {
+        guard let command = object["cmd"] as? String else {
+            return
+        }
+
+        if command == RFIDCommand.writeEpc.rawValue {
+            let epc = object["epc"] as? String
+            if let epc {
+                latestTag = TagRead(id: epc, epc: epc, pc: nil, rssi: nil, crc: nil, seenCount: 1, updatedAt: Date())
+            }
+            statusSummary = "Tag written"
+            lastWriteMessage = "Tag written"
+        } else if command == RFIDCommand.setPower.rawValue {
+            statusSummary = "Power set to \(selectedPowerDbm) dBm"
+        }
+        log(.firmware, "\(command) completed")
     }
 
     private func updateStatusSummary(from object: [String: Any]) {

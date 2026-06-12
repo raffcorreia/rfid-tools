@@ -36,6 +36,7 @@ enum RFIDCommand: String, CaseIterable, Identifiable {
     case setPower
     case getRegion
     case setRegion
+    case writeEpc
     case startInventory
     case stopInventory
 
