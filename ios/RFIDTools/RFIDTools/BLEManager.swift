@@ -303,11 +303,13 @@ final class BLEManager: NSObject, ObservableObject {
         let crc = object["crc"] as? String
 
         if let index = tags.firstIndex(where: { $0.epc == epc }) {
-            tags[index].pc = pc ?? tags[index].pc
-            tags[index].rssi = rssi ?? tags[index].rssi
-            tags[index].crc = crc ?? tags[index].crc
-            tags[index].seenCount += 1
-            tags[index].updatedAt = Date()
+            var updatedTag = tags.remove(at: index)
+            updatedTag.pc = pc ?? updatedTag.pc
+            updatedTag.rssi = rssi ?? updatedTag.rssi
+            updatedTag.crc = crc ?? updatedTag.crc
+            updatedTag.seenCount += 1
+            updatedTag.updatedAt = Date()
+            tags.insert(updatedTag, at: 0)
         } else {
             tags.insert(
                 TagRead(id: epc, epc: epc, pc: pc, rssi: rssi, crc: crc, seenCount: 1, updatedAt: Date()),
@@ -316,7 +318,7 @@ final class BLEManager: NSObject, ObservableObject {
         }
         latestTag = tags.first(where: { $0.epc == epc })
         isInventoryRunning = false
-        statusSummary = "Read tag \(epc)"
+        statusSummary = "Read \(tags.count) unique tag\(tags.count == 1 ? "" : "s")"
     }
 
     private func resetConnectionState() {

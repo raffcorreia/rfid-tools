@@ -181,7 +181,7 @@ struct ContentView: View {
                 .frame(maxWidth: 140)
             }
 
-            latestTagView
+            detectedTagsView
 
             HStack(spacing: 10) {
                 Button {
@@ -211,33 +211,43 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var latestTagView: some View {
-        if let latestTag = bleManager.latestTag {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(latestTag.displayValue(format: tagDisplayFormat))
-                    .font(.system(.subheadline, design: tagDisplayFormat == .hex ? .monospaced : .default))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack(spacing: 14) {
-                    Text("Seen \(latestTag.seenCount)")
-                    if let rssi = latestTag.rssi {
-                        Text("RSSI \(rssi)")
-                    }
-                    Text(latestTag.updatedAt, style: .time)
-                }
-                .font(.caption)
+    private var detectedTagsView: some View {
+        if bleManager.tags.isEmpty {
+            Text("No tag read yet")
+                .font(.footnote)
                 .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(bleManager.tags.prefix(8)) { tag in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(tag.displayValue(format: tagDisplayFormat))
+                            .font(.system(.subheadline, design: tagDisplayFormat == .hex ? .monospaced : .default))
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.8)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        HStack(spacing: 12) {
+                            Text("Seen \(tag.seenCount)")
+                            if let rssi = tag.rssi {
+                                Text("RSSI \(rssi)")
+                            }
+                            Text(tag.updatedAt, style: .time)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    if tag.id != bleManager.tags.prefix(8).last?.id {
+                        Divider()
+                    }
+                }
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 8))
-        } else {
-            Text("No tag read yet")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
