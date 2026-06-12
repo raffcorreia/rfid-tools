@@ -455,6 +455,7 @@ private struct SettingsView: View {
 private struct DiagnosticsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var bleManager: BLEManager
+    @State private var didCopyLogs = false
 
     var body: some View {
         List {
@@ -479,11 +480,36 @@ private struct DiagnosticsView: View {
             }
 
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Clear") {
-                    bleManager.clearDiagnostics()
+                HStack(spacing: 12) {
+                    Button {
+                        copyDiagnostics()
+                    } label: {
+                        Image(systemName: didCopyLogs ? "checkmark" : "doc.on.doc")
+                    }
+                    .disabled(bleManager.diagnostics.isEmpty)
+                    .accessibilityLabel("Copy diagnostics")
+
+                    Button("Clear") {
+                        bleManager.clearDiagnostics()
+                    }
+                    .disabled(bleManager.diagnostics.isEmpty)
                 }
-                .disabled(bleManager.diagnostics.isEmpty)
             }
+        }
+    }
+
+    private func copyDiagnostics() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        UIPasteboard.general.string = bleManager.diagnostics
+            .map { entry in
+                "\(entry.prefix) \(formatter.string(from: entry.timestamp))\n\(entry.message)"
+            }
+            .joined(separator: "\n\n")
+
+        didCopyLogs = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            didCopyLogs = false
         }
     }
 }
