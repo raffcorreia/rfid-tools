@@ -12,3 +12,9 @@ Examples planned for this directory:
 - BLE event payload examples
 
 These vectors are the shared contract between the iOS app, ESP32 firmware, and optional protocol tools.
+
+## Current Vectors
+
+| File | Purpose |
+|---|---|
+| `yrm100-frames.md` | YRM100 command, response, inventory, error, and malformed-frame examples |

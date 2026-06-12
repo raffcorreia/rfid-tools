@@ -22,6 +22,8 @@ The firmware must be testable over USB serial without requiring the iPhone app f
 | Tool | Purpose |
 |---|---|
 | `yrm100_bringup/` | Arduino-compatible sketch for PHASE-001 UART wiring validation |
+| `rfid_ble_service/` | Arduino-compatible sketch for PHASE-003 BLE service bring-up |
+| `yrm100_driver/` | Project-owned YRM100 frame builder, parser, command builders, and decoders |
 
 ## First Bring-Up Wiring
 
