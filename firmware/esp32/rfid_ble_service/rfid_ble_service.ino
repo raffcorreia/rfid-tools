@@ -38,7 +38,7 @@
 #endif
 
 static constexpr const char *kDeviceName = "RFID Tools ESP32";
-static constexpr const char *kFirmwareVersion = "0.1.1";
+static constexpr const char *kFirmwareVersion = "0.1.2";
 static constexpr const char *kServiceUuid = "63802432-69FC-406D-A538-FE33CEF32AEF";
 static constexpr const char *kCommandUuid = "DE0D7201-CC2B-46D9-8F92-564A209C37EF";
 static constexpr const char *kEventsUuid = "456F5CDA-632A-4541-A2A5-6FAEC234075E";
@@ -47,9 +47,12 @@ static constexpr int kYrmRxPin = YRM100_RX_PIN;
 static constexpr int kYrmTxPin = YRM100_TX_PIN;
 static constexpr uint32_t kYrmBaud = YRM100_DEFAULT_BAUD;
 static constexpr uint32_t kCommandTimeoutMs = 1500;
+static constexpr uint32_t kInventoryCooldownMs = 150;
 static constexpr int kMinPowerDbm = 0;
 static constexpr int kMaxPowerDbm = 26;
 static constexpr uint8_t kRegionUs = 0x02;
+static constexpr size_t kMaxBleCommandLength = 256;
+static constexpr size_t kBleCommandQueueDepth = 4;
 
 static BLEServer *bleServer = nullptr;
 static BLECharacteristic *eventsCharacteristic = nullptr;
@@ -62,7 +65,25 @@ static bool scanActive = false;
 static bool readerReady = false;
 static int currentPowerCentiDbm = -1;
 static int currentRegion = -1;
+static uint32_t lastInventoryEndMs = 0;
 static std::vector<uint8_t> lastInventoryEpc;
+
+struct QueuedBleCommand {
+  bool occupied = false;
+  char text[kMaxBleCommandLength + 1] = {};
+};
+
+static portMUX_TYPE bleQueueMux = portMUX_INITIALIZER_UNLOCKED;
+static QueuedBleCommand bleCommandQueue[kBleCommandQueueDepth];
+static size_t bleCommandHead = 0;
+static size_t bleCommandTail = 0;
+static size_t bleCommandCount = 0;
+static volatile bool bleCommandOverflow = false;
+static volatile bool bleCommandTooLong = false;
+static volatile bool bleConnectPending = false;
+static volatile bool bleDisconnectPending = false;
+static volatile bool bleRestartAdvertisingPending = false;
+static volatile bool statusUpdatePending = false;
 
 static const char *resetReasonName(esp_reset_reason_t reason) {
   switch (reason) {
@@ -142,6 +163,67 @@ static AppCommand parseCommand(const String &message);
 static bool isWriteAction(PendingAction action);
 static bool sendYrmCommand(int id, PendingAction action, uint8_t yrmCommand, const std::vector<uint8_t> &frame);
 static bool sendWriteStep(PendingAction action, uint8_t yrmCommand, const std::vector<uint8_t> &frame);
+
+static bool enqueueBleCommand(const char *value, size_t length) {
+  if (length == 0) {
+    return true;
+  }
+
+  if (length > kMaxBleCommandLength) {
+    bleCommandTooLong = true;
+    return false;
+  }
+
+  portENTER_CRITICAL(&bleQueueMux);
+  if (bleCommandCount >= kBleCommandQueueDepth) {
+    bleCommandOverflow = true;
+    portEXIT_CRITICAL(&bleQueueMux);
+    return false;
+  }
+
+  QueuedBleCommand &slot = bleCommandQueue[bleCommandTail];
+  memcpy(slot.text, value, length);
+  slot.text[length] = '\0';
+  slot.occupied = true;
+  bleCommandTail = (bleCommandTail + 1) % kBleCommandQueueDepth;
+  bleCommandCount++;
+  portEXIT_CRITICAL(&bleQueueMux);
+  return true;
+}
+
+static bool dequeueBleCommand(String &message) {
+  char text[kMaxBleCommandLength + 1] = {};
+  bool hasCommand = false;
+
+  portENTER_CRITICAL(&bleQueueMux);
+  if (bleCommandCount > 0) {
+    QueuedBleCommand &slot = bleCommandQueue[bleCommandHead];
+    strncpy(text, slot.text, sizeof(text) - 1);
+    slot.text[0] = '\0';
+    slot.occupied = false;
+    bleCommandHead = (bleCommandHead + 1) % kBleCommandQueueDepth;
+    bleCommandCount--;
+    hasCommand = true;
+  }
+  portEXIT_CRITICAL(&bleQueueMux);
+
+  if (hasCommand) {
+    message = text;
+  }
+  return hasCommand;
+}
+
+static void clearBleCommandQueue() {
+  portENTER_CRITICAL(&bleQueueMux);
+  for (QueuedBleCommand &slot : bleCommandQueue) {
+    slot.text[0] = '\0';
+    slot.occupied = false;
+  }
+  bleCommandHead = 0;
+  bleCommandTail = 0;
+  bleCommandCount = 0;
+  portEXIT_CRITICAL(&bleQueueMux);
+}
 
 static const char *pendingActionName(PendingAction action) {
   switch (action) {
@@ -574,6 +656,7 @@ static void stopInventoryForDisconnect() {
   YrmSerial.write(frame.data(), frame.size());
   YrmSerial.flush();
   scanActive = false;
+  lastInventoryEndMs = millis();
   clearPending();
   clearWriteContext();
 }
@@ -598,6 +681,7 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
     if (pending.action == PendingAction::StartInventory) {
       notifyEvent(String("{\"v\":1,\"id\":") + pending.id + ",\"evt\":\"scanStopped\",\"reason\":\"single_read\"}");
       scanActive = false;
+      lastInventoryEndMs = millis();
       clearPending();
       updateStatusCharacteristic();
     }
@@ -607,6 +691,10 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
   rfid::yrm100::ErrorResponse error;
   if (rfid::yrm100::decodeErrorResponse(frame, error)) {
     notifyError(pending.id, "reader_error", "yrm100", (String("YRM100 error 0x") + String(error.code, HEX)).c_str());
+    if (pending.action == PendingAction::StartInventory || pending.action == PendingAction::StopInventory) {
+      scanActive = false;
+      lastInventoryEndMs = millis();
+    }
     if (isWriteAction(pending.action)) {
       clearWriteContext();
     }
@@ -644,6 +732,7 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
     case PendingAction::StopInventory:
       if (rfid::yrm100::decodeCommandStatus(frame, pending.yrmCommand, status) && status.status == 0x00) {
         scanActive = false;
+        lastInventoryEndMs = millis();
         notifyEvent(String("{\"v\":1,\"id\":") + pending.id + ",\"evt\":\"scanStopped\",\"reason\":\"requested\"}");
         clearPending();
       }
@@ -773,6 +862,9 @@ static void checkCommandTimeout() {
     YrmSerial.flush();
     scanActive = false;
   }
+  if (timedOutAction == PendingAction::StartInventory || timedOutAction == PendingAction::StopInventory) {
+    lastInventoryEndMs = millis();
+  }
   if (isWriteAction(pending.action)) {
     clearWriteContext();
   }
@@ -805,6 +897,10 @@ static void handleCommand(const String &message) {
       sendStopInventoryCommand(id);
       break;
     case AppCommand::StartInventory:
+      if (millis() - lastInventoryEndMs < kInventoryCooldownMs) {
+        notifyError(id, "reader_busy", "yrm100", "Reader is settling after the last inventory");
+        break;
+      }
       scanActive = false;
       sendYrmCommand(id, PendingAction::StartInventory, static_cast<uint8_t>(rfid::yrm100::Command::SingleInventory),
                      rfid::yrm100::buildSingleInventory());
@@ -857,20 +953,64 @@ static void handleCommand(const String &message) {
   }
 }
 
+static void processBleLifecycleEvents() {
+  if (bleConnectPending) {
+    bleConnectPending = false;
+    Serial.println("[BLE] central connected");
+    updateStatusCharacteristic();
+  }
+
+  if (bleDisconnectPending) {
+    bleDisconnectPending = false;
+    clearBleCommandQueue();
+    stopInventoryForDisconnect();
+    updateStatusCharacteristic();
+    Serial.println("[BLE] central disconnected");
+  }
+
+  if (bleRestartAdvertisingPending) {
+    bleRestartAdvertisingPending = false;
+    BLEDevice::startAdvertising();
+    Serial.println("[BLE] advertising restarted");
+  }
+}
+
+static void processQueuedBleCommands() {
+  if (bleCommandTooLong) {
+    bleCommandTooLong = false;
+    notifyError(0, "invalid_argument", "ble", "Command payload is too large");
+  }
+
+  if (bleCommandOverflow) {
+    bleCommandOverflow = false;
+    notifyError(0, "busy", "firmware", "Command queue is full");
+  }
+
+  if (!bleConnected) {
+    clearBleCommandQueue();
+    return;
+  }
+
+  String message;
+  while (dequeueBleCommand(message)) {
+    handleCommand(message);
+  }
+}
+
 class ServerCallbacks final : public BLEServerCallbacks {
   void onConnect(BLEServer *server) override {
     (void)server;
     bleConnected = true;
-    updateStatusCharacteristic();
-    Serial.println("[BLE] central connected");
+    bleConnectPending = true;
+    statusUpdatePending = true;
   }
 
   void onDisconnect(BLEServer *server) override {
+    (void)server;
     bleConnected = false;
-    stopInventoryForDisconnect();
-    updateStatusCharacteristic();
-    Serial.println("[BLE] central disconnected");
-    server->getAdvertising()->start();
+    bleDisconnectPending = true;
+    bleRestartAdvertisingPending = true;
+    statusUpdatePending = true;
   }
 };
 
@@ -880,7 +1020,7 @@ class CommandCallbacks final : public BLECharacteristicCallbacks {
     if (value.length() == 0) {
       return;
     }
-    handleCommand(value);
+    enqueueBleCommand(value.c_str(), value.length());
   }
 };
 
@@ -946,10 +1086,13 @@ void loop() {
   static uint32_t lastStatusUpdateMs = 0;
   const uint32_t now = millis();
 
+  processBleLifecycleEvents();
+  processQueuedBleCommands();
   pollYrmSerial();
   checkCommandTimeout();
 
-  if (now - lastStatusUpdateMs >= 1000) {
+  if (statusUpdatePending || now - lastStatusUpdateMs >= 1000) {
+    statusUpdatePending = false;
     lastStatusUpdateMs = now;
     updateStatusCharacteristic();
   }
