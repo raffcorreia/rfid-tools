@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var tagDisplayFormat: TagDisplayFormat = .hex
     @State private var selectedSavedTagID: UUID?
     @State private var isShowingSettings = false
+    @State private var isShowingDiagnostics = false
     @State private var copiedTagID: String?
 
     private var selectedSavedTag: SavedTag? {
@@ -47,6 +48,12 @@ struct ContentView: View {
                     .environmentObject(bleManager)
             }
         }
+        .sheet(isPresented: $isShowingDiagnostics) {
+            NavigationStack {
+                DiagnosticsView()
+                    .environmentObject(bleManager)
+            }
+        }
     }
 
     private var header: some View {
@@ -56,6 +63,18 @@ struct ContentView: View {
                 .lineLimit(1)
 
             Spacer()
+
+            Button {
+                isShowingDiagnostics = true
+            } label: {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 36, height: 36)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Diagnostics")
 
             Button {
                 isShowingSettings = true
@@ -435,6 +454,7 @@ private struct SettingsView: View {
 }
 
 private struct DiagnosticsView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var bleManager: BLEManager
 
     var body: some View {
@@ -451,6 +471,20 @@ private struct DiagnosticsView: View {
             }
         }
         .navigationTitle("Diagnostics")
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Done") {
+                    dismiss()
+                }
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Clear") {
+                    bleManager.clearDiagnostics()
+                }
+                .disabled(bleManager.diagnostics.isEmpty)
+            }
+        }
     }
 }
 

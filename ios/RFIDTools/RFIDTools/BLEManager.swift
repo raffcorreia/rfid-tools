@@ -225,10 +225,10 @@ final class BLEManager: NSObject, ObservableObject {
 
         do {
             let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
-            connectedPeripheral.writeValue(data, for: commandCharacteristic, type: .withResponse)
-            if let command = payload["cmd"] as? String {
-                log(.app, "Sent \(command)")
+            if let text = String(data: data, encoding: .utf8) {
+                log(.app, "TX \(text)")
             }
+            connectedPeripheral.writeValue(data, for: commandCharacteristic, type: .withResponse)
         } catch {
             statusSummary = "Could not send command"
             log(.error, "Failed to encode command: \(error.localizedDescription)")
@@ -240,6 +240,7 @@ final class BLEManager: NSObject, ObservableObject {
             log(.error, "Received non-UTF8 event payload")
             return
         }
+        log(.firmware, "RX \(text)")
 
         if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             handleEventObject(object)
@@ -485,6 +486,10 @@ final class BLEManager: NSObject, ObservableObject {
             return
         }
         UserDefaults.standard.set(data, forKey: savedTagsKey)
+    }
+
+    func clearDiagnostics() {
+        diagnostics.removeAll()
     }
 
     private func log(_ direction: DiagnosticEntry.Direction, _ message: String) {
