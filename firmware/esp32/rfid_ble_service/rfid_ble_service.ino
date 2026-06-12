@@ -583,6 +583,12 @@ static void handleYrmFrame(const rfid::yrm100::Frame &frame) {
 
   rfid::yrm100::InventoryTag tag;
   if (rfid::yrm100::decodeInventoryTag(frame, tag)) {
+    if (!scanActive && pending.action != PendingAction::StartInventory) {
+      Serial.print("[YRM RX] ignored late inventory tag ");
+      Serial.println(bytesToHex(tag.epc));
+      return;
+    }
+
     lastInventoryEpc = tag.epc;
     notifyEvent(String("{\"v\":1,\"id\":null,\"evt\":\"tagSeen\",\"epc\":\"") +
                 bytesToHex(tag.epc) +
