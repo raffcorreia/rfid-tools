@@ -139,7 +139,7 @@ struct ContentView: View {
                         get: { Double(bleManager.selectedPowerDbm) },
                         set: { bleManager.selectedPowerDbm = Int($0.rounded()) }
                     ),
-                    in: 15...26,
+                    in: 0...26,
                     step: 1
                 )
 

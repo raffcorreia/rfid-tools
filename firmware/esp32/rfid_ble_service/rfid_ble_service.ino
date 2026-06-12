@@ -13,6 +13,7 @@
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
+#include <esp_system.h>
 
 #include "../yrm100_driver/Yrm100Driver.h"
 
@@ -37,7 +38,7 @@
 #endif
 
 static constexpr const char *kDeviceName = "RFID Tools ESP32";
-static constexpr const char *kFirmwareVersion = "0.1.0";
+static constexpr const char *kFirmwareVersion = "0.1.1";
 static constexpr const char *kServiceUuid = "63802432-69FC-406D-A538-FE33CEF32AEF";
 static constexpr const char *kCommandUuid = "DE0D7201-CC2B-46D9-8F92-564A209C37EF";
 static constexpr const char *kEventsUuid = "456F5CDA-632A-4541-A2A5-6FAEC234075E";
@@ -46,6 +47,8 @@ static constexpr int kYrmRxPin = YRM100_RX_PIN;
 static constexpr int kYrmTxPin = YRM100_TX_PIN;
 static constexpr uint32_t kYrmBaud = YRM100_DEFAULT_BAUD;
 static constexpr uint32_t kCommandTimeoutMs = 1500;
+static constexpr int kMinPowerDbm = 0;
+static constexpr int kMaxPowerDbm = 26;
 static constexpr uint8_t kRegionUs = 0x02;
 
 static BLEServer *bleServer = nullptr;
@@ -60,6 +63,34 @@ static bool readerReady = false;
 static int currentPowerCentiDbm = -1;
 static int currentRegion = -1;
 static std::vector<uint8_t> lastInventoryEpc;
+
+static const char *resetReasonName(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_POWERON:
+      return "power_on";
+    case ESP_RST_EXT:
+      return "external";
+    case ESP_RST_SW:
+      return "software";
+    case ESP_RST_PANIC:
+      return "panic";
+    case ESP_RST_INT_WDT:
+      return "interrupt_watchdog";
+    case ESP_RST_TASK_WDT:
+      return "task_watchdog";
+    case ESP_RST_WDT:
+      return "other_watchdog";
+    case ESP_RST_DEEPSLEEP:
+      return "deep_sleep";
+    case ESP_RST_BROWNOUT:
+      return "brownout";
+    case ESP_RST_SDIO:
+      return "sdio";
+    case ESP_RST_UNKNOWN:
+    default:
+      return "unknown";
+  }
+}
 
 enum class AppCommand {
   GetInfo,
@@ -105,6 +136,12 @@ struct WriteContext {
 };
 
 static WriteContext writeContext;
+
+static const char *pendingActionName(PendingAction action);
+static AppCommand parseCommand(const String &message);
+static bool isWriteAction(PendingAction action);
+static bool sendYrmCommand(int id, PendingAction action, uint8_t yrmCommand, const std::vector<uint8_t> &frame);
+static bool sendWriteStep(PendingAction action, uint8_t yrmCommand, const std::vector<uint8_t> &frame);
 
 static const char *pendingActionName(PendingAction action) {
   switch (action) {
@@ -367,7 +404,7 @@ static bool parsePowerCentiDbm(const String &message, int16_t &centiDbm) {
     return false;
   }
 
-  if (dbm < 15 || dbm > 26) {
+  if (dbm < kMinPowerDbm || dbm > kMaxPowerDbm) {
     return false;
   }
 
@@ -715,7 +752,15 @@ static void checkCommandTimeout() {
     return;
   }
 
+  const PendingAction timedOutAction = pending.action;
   notifyError(pending.id, "reader_timeout", "yrm100", "Reader did not respond");
+  if (timedOutAction == PendingAction::StartInventory) {
+    const auto stopFrame = rfid::yrm100::buildStopMultipleInventory();
+    Serial.println("[YRM TX] stop inventory after start timeout");
+    YrmSerial.write(stopFrame.data(), stopFrame.size());
+    YrmSerial.flush();
+    scanActive = false;
+  }
   if (isWriteAction(pending.action)) {
     clearWriteContext();
   }
@@ -759,7 +804,7 @@ static void handleCommand(const String &message) {
       {
         int16_t centiDbm = 0;
         if (!parsePowerCentiDbm(message, centiDbm)) {
-          notifyError(id, "invalid_argument", "ble", "setPower requires integer dbm from 15 to 26");
+          notifyError(id, "invalid_argument", "ble", "setPower requires integer dbm from 0 to 26");
           break;
         }
         currentPowerCentiDbm = centiDbm;
@@ -832,6 +877,10 @@ void setup() {
 
   Serial.println();
   Serial.println("RFID Tools ESP32 BLE service");
+  Serial.print("Firmware version: ");
+  Serial.println(kFirmwareVersion);
+  Serial.print("Reset reason: ");
+  Serial.println(resetReasonName(esp_reset_reason()));
   Serial.print("Service UUID: ");
   Serial.println(kServiceUuid);
   Serial.print("YRM100 UART RX pin: ");
